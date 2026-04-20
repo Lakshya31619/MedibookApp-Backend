@@ -40,6 +40,12 @@ public class ProviderDto {
     }
 
     @Data
+    public static class RejectProviderRequest {
+        @NotBlank(message = "Rejection reason is required")
+        private String reason;
+    }
+
+    @Data
     public static class ProviderResponse {
         private int providerId;
         private int userId;
@@ -52,6 +58,8 @@ public class ProviderDto {
         private double avgRating;
         private boolean isAvailable;
         private boolean isVerified;
+        private String verificationStatus;
+        private String rejectionReason;
         private double consultationFee;
         private String profilePicUrl;
         private String createdAt;
