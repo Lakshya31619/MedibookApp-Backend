@@ -28,6 +28,7 @@ public class ProviderServiceImpl implements ProviderService {
 
         Provider provider = new Provider();
         provider.setUserId(request.getUserId());
+        provider.setProviderName(request.getProviderName());
         provider.setSpecialization(request.getSpecialization());
         provider.setQualification(request.getQualification());
         provider.setExperienceYears(request.getExperienceYears());

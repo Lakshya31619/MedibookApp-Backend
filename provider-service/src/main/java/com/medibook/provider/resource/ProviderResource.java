@@ -243,7 +243,9 @@ public class ProviderResource {
         ProviderResponse r = new ProviderResponse();
         r.setProviderId(p.getProviderId());
         r.setUserId(p.getUserId());
-        r.setProviderName(fetchProviderName(p.getUserId()));  
+        String name = (p.getProviderName() != null && !p.getProviderName().isBlank())
+            ? p.getProviderName() : fetchProviderName(p.getUserId());
+        r.setProviderName(name);
         r.setSpecialization(p.getSpecialization());
         r.setQualification(p.getQualification());
         r.setExperienceYears(p.getExperienceYears());
@@ -251,8 +253,8 @@ public class ProviderResource {
         r.setClinicName(p.getClinicName());
         r.setClinicAddress(p.getClinicAddress());
         r.setAvgRating(p.getAvgRating());
-        r.setAvailable(p.isAvailable());     
-        r.setVerified(p.isVerified());     
+        r.setAvailable(p.isAvailable());   
+        r.setVerified(p.isVerified());    
         r.setVerificationStatus(p.getVerificationStatus());
         r.setRejectionReason(p.getRejectionReason());
         r.setConsultationFee(p.getConsultationFee());
@@ -264,12 +266,14 @@ public class ProviderResource {
     private ProviderSummary toSummary(Provider p) {
         ProviderSummary s = new ProviderSummary();
         s.setProviderId(p.getProviderId());
-        s.setProviderName(fetchProviderName(p.getUserId())); 
+        String name = (p.getProviderName() != null && !p.getProviderName().isBlank())
+            ? p.getProviderName() : fetchProviderName(p.getUserId());
+        s.setProviderName(name);
         s.setSpecialization(p.getSpecialization());
         s.setClinicName(p.getClinicName());
         s.setClinicAddress(p.getClinicAddress());
         s.setAvgRating(p.getAvgRating());
-        s.setAvailable(p.isAvailable());     
+        s.setAvailable(p.isAvailable());  
         s.setConsultationFee(p.getConsultationFee());
         s.setProfilePicUrl(p.getProfilePicUrl());
         s.setExperienceYears(p.getExperienceYears());

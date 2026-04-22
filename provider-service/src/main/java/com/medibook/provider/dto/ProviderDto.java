@@ -11,6 +11,8 @@ public class ProviderDto {
         @NotNull(message = "userId is required")
         private Integer userId;
 
+        private String providerName;
+
         @NotBlank(message = "Specialization is required")
         private String specialization;
 
@@ -49,7 +51,7 @@ public class ProviderDto {
     public static class ProviderResponse {
         private int providerId;
         private int userId;
-        private String providerName;      
+        private String providerName;       
         private String specialization;
         private String qualification;
         private int experienceYears;
@@ -57,8 +59,8 @@ public class ProviderDto {
         private String clinicName;
         private String clinicAddress;
         private double avgRating;
-        private boolean available; 
-        private boolean verified;     
+        private boolean available;          
+        private boolean verified;           
         private String verificationStatus;
         private String rejectionReason;
         private double consultationFee;
@@ -74,7 +76,7 @@ public class ProviderDto {
         private String clinicName;
         private String clinicAddress;
         private double avgRating;
-        private boolean available;          
+        private boolean available;   
         private double consultationFee;
         private String profilePicUrl;
         private int experienceYears;

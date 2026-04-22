@@ -24,6 +24,7 @@ public interface ProviderRepository extends JpaRepository<Provider, Integer> {
             String specialization, boolean isVerified, boolean isAvailable);
 
     @Query("SELECT p FROM Provider p WHERE " +
+           "LOWER(p.providerName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
            "LOWER(p.specialization) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
            "LOWER(p.clinicAddress) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
            "LOWER(p.clinicName) LIKE LOWER(CONCAT('%', :keyword, '%'))")
