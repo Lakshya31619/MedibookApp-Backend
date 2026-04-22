@@ -78,8 +78,8 @@ public class ScheduleDto {
         private String startTime;
         private String endTime;
         private int durationMinutes;
-        private boolean isBooked;
-        private boolean isBlocked;
+        private boolean booked;     // FIX: was "isBooked" — Lombok+Jackson naming bug
+        private boolean blocked;    // FIX: was "isBlocked" — Lombok+Jackson naming bug
         private String recurrence;
         private String createdAt;
     }
