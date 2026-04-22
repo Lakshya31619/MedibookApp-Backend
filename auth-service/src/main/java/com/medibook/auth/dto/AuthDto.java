@@ -72,7 +72,7 @@ public class AuthDto {
         private String phone;
         private String role;
         private String provider;
-        private boolean isActive;
+        private boolean active; 
         private String profilePicUrl;
         private String createdAt;
     }

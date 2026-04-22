@@ -37,6 +37,7 @@ public class SecurityConfig {
                     "/auth/register",
                     "/auth/login",
                     "/auth/refresh",
+                    "/auth/internal/**",
                     "/login/oauth2/**",
                     "/oauth2/**",
                     "/h2-console/**"
