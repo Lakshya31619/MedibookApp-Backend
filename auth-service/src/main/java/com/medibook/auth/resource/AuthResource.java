@@ -93,7 +93,7 @@ public class AuthResource {
                                            Principal principal) {
         try {
             User requester = authService.getUserByEmail(principal.getName());
-            if (requester.getUserId() != userId) {
+            if (requester.getUserId() != userId && !requester.getRole().equals("ADMIN")) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN)
                         .body(Map.of("error", "You can only update your own profile"));
             }
@@ -173,7 +173,7 @@ public class AuthResource {
             "email",        user.getEmail(),
             "phone",        user.getPhone() != null ? user.getPhone() : "",
             "role",         user.getRole(),
-            "isActive",     user.isActive(),
+            "active",       user.isActive(),
             "provider",     user.getProvider() != null ? user.getProvider() : "local",
             "profilePicUrl",user.getProfilePicUrl() != null ? user.getProfilePicUrl() : "",
             "createdAt",    user.getCreatedAt() != null ? user.getCreatedAt().toString() : ""
