@@ -52,7 +52,7 @@ public class AuthResource {
 
     @PostMapping("/logout")
     public ResponseEntity<?> logout(@RequestHeader("Authorization") String authHeader) {
-        String token = authHeader.substring(7);  // strip "Bearer "
+        String token = authHeader.substring(7);
         authService.logout(token);
         return ResponseEntity.ok(Map.of("message", "Logged out successfully"));
     }
@@ -148,6 +148,22 @@ public class AuthResource {
                 : authService.getUsersByRole("PATIENT");
 
         return ResponseEntity.ok(users.stream().map(this::mapToResponse).toList());
+    }
+
+    @GetMapping("/internal/users/{userId}")
+    public ResponseEntity<?> getUserByIdInternal(@PathVariable int userId) {
+        try {
+            User user = authService.getUserById(userId);
+            return ResponseEntity.ok(Map.of(
+                "userId",   user.getUserId(),
+                "fullName", user.getFullName(),
+                "email",    user.getEmail(),
+                "role",     user.getRole()
+            ));
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", e.getMessage()));
+        }
     }
 
     private Map<String, Object> mapToResponse(User user) {

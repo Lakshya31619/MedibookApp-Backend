@@ -49,6 +49,7 @@ public class ProviderDto {
     public static class ProviderResponse {
         private int providerId;
         private int userId;
+        private String providerName;       
         private String specialization;
         private String qualification;
         private int experienceYears;
@@ -56,8 +57,8 @@ public class ProviderDto {
         private String clinicName;
         private String clinicAddress;
         private double avgRating;
-        private boolean isAvailable;
-        private boolean isVerified;
+        private boolean available;          
+        private boolean verified;           
         private String verificationStatus;
         private String rejectionReason;
         private double consultationFee;
@@ -68,11 +69,12 @@ public class ProviderDto {
     @Data
     public static class ProviderSummary {
         private int providerId;
+        private String providerName;  
         private String specialization;
         private String clinicName;
         private String clinicAddress;
         private double avgRating;
-        private boolean isAvailable;
+        private boolean available;   
         private double consultationFee;
         private String profilePicUrl;
         private int experienceYears;

@@ -78,8 +78,8 @@ public class ScheduleDto {
         private String startTime;
         private String endTime;
         private int durationMinutes;
-        private boolean isBooked;
-        private boolean isBlocked;
+        private boolean booked; 
+        private boolean blocked;  
         private String recurrence;
         private String createdAt;
     }

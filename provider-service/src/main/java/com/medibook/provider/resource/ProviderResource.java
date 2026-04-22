@@ -5,10 +5,12 @@ import com.medibook.provider.entity.Provider;
 import com.medibook.provider.service.ProviderService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
 import java.util.Map;
@@ -20,6 +22,12 @@ public class ProviderResource {
 
     @Autowired
     private ProviderService providerService;
+
+    @Autowired
+    private RestTemplate restTemplate;
+
+    @Value("${auth.service.url}")
+    private String authServiceUrl;
 
     @GetMapping
     public ResponseEntity<List<ProviderSummary>> getAllVerified() {
@@ -235,6 +243,7 @@ public class ProviderResource {
         ProviderResponse r = new ProviderResponse();
         r.setProviderId(p.getProviderId());
         r.setUserId(p.getUserId());
+        r.setProviderName(fetchProviderName(p.getUserId()));
         r.setSpecialization(p.getSpecialization());
         r.setQualification(p.getQualification());
         r.setExperienceYears(p.getExperienceYears());
@@ -242,8 +251,8 @@ public class ProviderResource {
         r.setClinicName(p.getClinicName());
         r.setClinicAddress(p.getClinicAddress());
         r.setAvgRating(p.getAvgRating());
-        r.setAvailable(p.isAvailable());
-        r.setVerified(p.isVerified());
+        r.setAvailable(p.isAvailable());   
+        r.setVerified(p.isVerified());    
         r.setVerificationStatus(p.getVerificationStatus());
         r.setRejectionReason(p.getRejectionReason());
         r.setConsultationFee(p.getConsultationFee());
@@ -255,14 +264,28 @@ public class ProviderResource {
     private ProviderSummary toSummary(Provider p) {
         ProviderSummary s = new ProviderSummary();
         s.setProviderId(p.getProviderId());
+        s.setProviderName(fetchProviderName(p.getUserId()));
         s.setSpecialization(p.getSpecialization());
         s.setClinicName(p.getClinicName());
         s.setClinicAddress(p.getClinicAddress());
         s.setAvgRating(p.getAvgRating());
-        s.setAvailable(p.isAvailable());
+        s.setAvailable(p.isAvailable());  
         s.setConsultationFee(p.getConsultationFee());
         s.setProfilePicUrl(p.getProfilePicUrl());
         s.setExperienceYears(p.getExperienceYears());
         return s;
+    }
+
+    @SuppressWarnings("unchecked")
+    private String fetchProviderName(int userId) {
+        try {
+            Map<String, Object> user = restTemplate.getForObject(
+                authServiceUrl + "/auth/internal/users/" + userId, Map.class);
+            return (user != null && user.get("fullName") != null)
+                ? (String) user.get("fullName")
+                : "Unknown";
+        } catch (Exception e) {
+            return "Unknown";
+        }
     }
 }
