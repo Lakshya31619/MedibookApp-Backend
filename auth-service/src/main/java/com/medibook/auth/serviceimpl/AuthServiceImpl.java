@@ -64,7 +64,7 @@ public class AuthServiceImpl implements AuthService {
             throw new RuntimeException("Invalid password");
         }
 
-        String token = jwtUtil.generateToken(user.getEmail(), user.getRole());
+        String token = jwtUtil.generateToken(user.getEmail(), user.getRole(), user.getUserId());
 
         UserResponse userResponse = mapToUserResponse(user);
 
@@ -94,7 +94,8 @@ public class AuthServiceImpl implements AuthService {
         }
         String email = jwtUtil.getEmailFromToken(token);
         String role  = jwtUtil.getRoleFromToken(token);
-        return jwtUtil.generateToken(email, role);
+        User user = getUserByEmail(email);
+        return jwtUtil.generateToken(email, role, user.getUserId());
     }
 
     @Override

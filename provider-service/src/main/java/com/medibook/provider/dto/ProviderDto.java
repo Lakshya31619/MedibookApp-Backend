@@ -11,6 +11,8 @@ public class ProviderDto {
         @NotNull(message = "userId is required")
         private Integer userId;
 
+        private String providerName;
+
         @NotBlank(message = "Specialization is required")
         private String specialization;
 

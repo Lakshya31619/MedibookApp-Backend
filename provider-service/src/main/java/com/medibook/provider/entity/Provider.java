@@ -21,6 +21,9 @@ public class Provider {
     @Column(nullable = false, unique = true)
     private int userId;
 
+    @Column
+    private String providerName;
+
     @Column(nullable = false)
     private String specialization;
 

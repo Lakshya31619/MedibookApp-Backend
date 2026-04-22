@@ -243,7 +243,9 @@ public class ProviderResource {
         ProviderResponse r = new ProviderResponse();
         r.setProviderId(p.getProviderId());
         r.setUserId(p.getUserId());
-        r.setProviderName(fetchProviderName(p.getUserId()));
+        String name = (p.getProviderName() != null && !p.getProviderName().isBlank())
+            ? p.getProviderName() : fetchProviderName(p.getUserId());
+        r.setProviderName(name);
         r.setSpecialization(p.getSpecialization());
         r.setQualification(p.getQualification());
         r.setExperienceYears(p.getExperienceYears());
@@ -264,7 +266,9 @@ public class ProviderResource {
     private ProviderSummary toSummary(Provider p) {
         ProviderSummary s = new ProviderSummary();
         s.setProviderId(p.getProviderId());
-        s.setProviderName(fetchProviderName(p.getUserId()));
+        String name = (p.getProviderName() != null && !p.getProviderName().isBlank())
+            ? p.getProviderName() : fetchProviderName(p.getUserId());
+        s.setProviderName(name);
         s.setSpecialization(p.getSpecialization());
         s.setClinicName(p.getClinicName());
         s.setClinicAddress(p.getClinicAddress());
