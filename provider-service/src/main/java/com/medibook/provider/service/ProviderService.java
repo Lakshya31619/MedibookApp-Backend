@@ -21,9 +21,13 @@ public interface ProviderService {
 
     List<Provider> getVerifiedProviders();
 
+    List<Provider> getPendingProviders();
+
     Provider updateProvider(int providerId, UpdateProviderRequest request);
 
     void verifyProvider(int providerId);
+
+    void rejectProvider(int providerId, String reason);
 
     void unverifyProvider(int providerId);
 
@@ -38,4 +42,6 @@ public interface ProviderService {
     List<SpecializationCount> getSpecializationCounts();
 
     List<Provider> getByLocation(String location);
+
+    boolean isProviderVerified(int providerId);
 }

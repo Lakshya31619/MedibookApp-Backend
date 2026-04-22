@@ -38,8 +38,9 @@ public class ProviderServiceImpl implements ProviderService {
         provider.setProfilePicUrl(request.getProfilePicUrl());
 
         provider.setVerified(false);
-        provider.setAvailable(true); 
-        provider.setAvgRating(0.0); 
+        provider.setVerificationStatus("PENDING");
+        provider.setAvailable(true);
+        provider.setAvgRating(0.0);
 
         return providerRepository.save(provider);
     }
@@ -84,6 +85,11 @@ public class ProviderServiceImpl implements ProviderService {
     }
 
     @Override
+    public List<Provider> getPendingProviders() {
+        return providerRepository.findByVerificationStatus("PENDING");
+    }
+
+    @Override
     public List<Provider> getByMinRating(double minRating) {
         return providerRepository
                 .findByAvgRatingGreaterThanEqualAndIsVerified(minRating, true);
@@ -100,16 +106,28 @@ public class ProviderServiceImpl implements ProviderService {
         return providerRepository.countBySpecialization()
                 .stream()
                 .map(row -> new SpecializationCount(
-                    (String) row[0],  
-                    (Long) row[1]         
+                    (String) row[0],
+                    (Long) row[1]
                 ))
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public boolean isProviderVerified(int providerId) {
+        Provider provider = getProviderById(providerId);
+        return provider.isVerified();
     }
 
     @Override
     @Transactional
     public Provider updateProvider(int providerId, UpdateProviderRequest request) {
         Provider provider = getProviderById(providerId);
+
+        if ("REJECTED".equals(provider.getVerificationStatus())) {
+            throw new RuntimeException(
+                "Your profile has been rejected. Reason: " + provider.getRejectionReason() +
+                ". Please contact admin.");
+        }
 
         if (request.getSpecialization() != null && !request.getSpecialization().isBlank())
             provider.setSpecialization(request.getSpecialization());
@@ -143,6 +161,24 @@ public class ProviderServiceImpl implements ProviderService {
     public void verifyProvider(int providerId) {
         Provider provider = getProviderById(providerId);
         provider.setVerified(true);
+        provider.setVerificationStatus("APPROVED");
+        provider.setRejectionReason(null);
+        providerRepository.save(provider);
+    }
+
+    @Override
+    @Transactional
+    public void rejectProvider(int providerId, String reason) {
+        Provider provider = getProviderById(providerId);
+
+        if ("APPROVED".equals(provider.getVerificationStatus())) {
+            throw new RuntimeException(
+                "Provider is already approved. Use unverify first if needed.");
+        }
+
+        provider.setVerified(false);
+        provider.setVerificationStatus("REJECTED");
+        provider.setRejectionReason(reason);
         providerRepository.save(provider);
     }
 
@@ -151,6 +187,8 @@ public class ProviderServiceImpl implements ProviderService {
     public void unverifyProvider(int providerId) {
         Provider provider = getProviderById(providerId);
         provider.setVerified(false);
+        provider.setVerificationStatus("PENDING");
+        provider.setRejectionReason(null);
         providerRepository.save(provider);
     }
 
@@ -167,6 +205,13 @@ public class ProviderServiceImpl implements ProviderService {
     @Transactional
     public void setAvailability(int providerId, boolean isAvailable) {
         Provider provider = getProviderById(providerId);
+
+        if (!provider.isVerified()) {
+            throw new RuntimeException(
+                "Only verified providers can change availability. " +
+                "Current status: " + provider.getVerificationStatus());
+        }
+
         provider.setAvailable(isAvailable);
         providerRepository.save(provider);
     }
@@ -175,7 +220,6 @@ public class ProviderServiceImpl implements ProviderService {
     @Transactional
     public void updateRating(int providerId, double newRating) {
         Provider provider = getProviderById(providerId);
-
         double clamped = Math.max(0.0, Math.min(5.0, newRating));
         provider.setAvgRating(clamped);
         providerRepository.save(provider);

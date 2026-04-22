@@ -41,4 +41,6 @@ public interface ProviderRepository extends JpaRepository<Provider, Integer> {
 
     List<Provider> findByAvgRatingGreaterThanEqualAndIsVerified(
             double minRating, boolean isVerified);
+
+    List<Provider> findByVerificationStatus(String verificationStatus);
 }

@@ -48,6 +48,12 @@ public class Provider {
     @Column(nullable = false)
     private boolean isVerified = false;
 
+    @Column(nullable = false)
+    private String verificationStatus = "PENDING";
+
+    @Column
+    private String rejectionReason;
+
     @Column
     private double consultationFee = 0.0;
 

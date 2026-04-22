@@ -5,10 +5,12 @@ import com.medibook.provider.entity.Provider;
 import com.medibook.provider.service.ProviderService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
 import java.util.Map;
@@ -21,13 +23,18 @@ public class ProviderResource {
     @Autowired
     private ProviderService providerService;
 
+    @Autowired
+    private RestTemplate restTemplate;
+
+    @Value("${auth.service.url}")
+    private String authServiceUrl;
+
     @GetMapping
     public ResponseEntity<List<ProviderSummary>> getAllVerified() {
-        List<ProviderSummary> summaries = providerService.getVerifiedProviders()
-                .stream()
-                .map(this::toSummary)
-                .toList();
-        return ResponseEntity.ok(summaries);
+        return ResponseEntity.ok(
+            providerService.getVerifiedProviders()
+                .stream().map(this::toSummary).toList()
+        );
     }
 
     @GetMapping("/{id}")
@@ -42,11 +49,10 @@ public class ProviderResource {
 
     @GetMapping("/search")
     public ResponseEntity<List<ProviderSummary>> search(@RequestParam String q) {
-        List<ProviderSummary> results = providerService.searchProviders(q)
-                .stream()
-                .map(this::toSummary)
-                .toList();
-        return ResponseEntity.ok(results);
+        return ResponseEntity.ok(
+            providerService.searchProviders(q)
+                .stream().map(this::toSummary).toList()
+        );
     }
 
     @GetMapping("/specialization/{spec}")
@@ -66,8 +72,7 @@ public class ProviderResource {
     }
 
     @GetMapping("/rating")
-    public ResponseEntity<List<ProviderSummary>> getByRating(
-            @RequestParam double min) {
+    public ResponseEntity<List<ProviderSummary>> getByRating(@RequestParam double min) {
         return ResponseEntity.ok(
             providerService.getByMinRating(min)
                 .stream().map(this::toSummary).toList()
@@ -82,7 +87,7 @@ public class ProviderResource {
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
                 "message", "Provider profile created. Awaiting admin verification.",
                 "providerId", provider.getProviderId(),
-                "isVerified", provider.isVerified()
+                "verificationStatus", provider.getVerificationStatus()
             ));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
@@ -137,14 +142,41 @@ public class ProviderResource {
         );
     }
 
+    @GetMapping("/admin/pending")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<ProviderResponse>> getPendingForAdmin() {
+        return ResponseEntity.ok(
+            providerService.getPendingProviders()
+                .stream().map(this::toResponse).toList()
+        );
+    }
+
     @PutMapping("/{id}/verify")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> verify(@PathVariable int id) {
         try {
             providerService.verifyProvider(id);
             return ResponseEntity.ok(Map.of(
-                "message", "Provider verified successfully",
-                "providerId", id
+                "message", "Provider approved successfully. They can now add slots.",
+                "providerId", id,
+                "verificationStatus", "APPROVED"
+            ));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/{id}/reject")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> reject(@PathVariable int id,
+                                    @Valid @RequestBody RejectProviderRequest request) {
+        try {
+            providerService.rejectProvider(id, request.getReason());
+            return ResponseEntity.ok(Map.of(
+                "message", "Provider rejected.",
+                "providerId", id,
+                "verificationStatus", "REJECTED",
+                "reason", request.getReason()
             ));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
@@ -156,7 +188,10 @@ public class ProviderResource {
     public ResponseEntity<?> unverify(@PathVariable int id) {
         try {
             providerService.unverifyProvider(id);
-            return ResponseEntity.ok(Map.of("message", "Provider verification removed"));
+            return ResponseEntity.ok(Map.of(
+                "message", "Provider reset to PENDING for re-review.",
+                "verificationStatus", "PENDING"
+            ));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
@@ -190,10 +225,25 @@ public class ProviderResource {
         return ResponseEntity.ok(providerService.getSpecializationCounts());
     }
 
+    @GetMapping("/{id}/verified")
+    public ResponseEntity<?> checkVerified(@PathVariable int id) {
+        try {
+            boolean verified = providerService.isProviderVerified(id);
+            return ResponseEntity.ok(Map.of(
+                "providerId", id,
+                "isVerified", verified
+            ));
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", e.getMessage()));
+        }
+    }
+
     private ProviderResponse toResponse(Provider p) {
         ProviderResponse r = new ProviderResponse();
         r.setProviderId(p.getProviderId());
         r.setUserId(p.getUserId());
+        r.setProviderName(fetchProviderName(p.getUserId()));  
         r.setSpecialization(p.getSpecialization());
         r.setQualification(p.getQualification());
         r.setExperienceYears(p.getExperienceYears());
@@ -201,8 +251,10 @@ public class ProviderResource {
         r.setClinicName(p.getClinicName());
         r.setClinicAddress(p.getClinicAddress());
         r.setAvgRating(p.getAvgRating());
-        r.setAvailable(p.isAvailable());
-        r.setVerified(p.isVerified());
+        r.setAvailable(p.isAvailable());     
+        r.setVerified(p.isVerified());     
+        r.setVerificationStatus(p.getVerificationStatus());
+        r.setRejectionReason(p.getRejectionReason());
         r.setConsultationFee(p.getConsultationFee());
         r.setProfilePicUrl(p.getProfilePicUrl());
         r.setCreatedAt(p.getCreatedAt() != null ? p.getCreatedAt().toString() : "");
@@ -212,14 +264,28 @@ public class ProviderResource {
     private ProviderSummary toSummary(Provider p) {
         ProviderSummary s = new ProviderSummary();
         s.setProviderId(p.getProviderId());
+        s.setProviderName(fetchProviderName(p.getUserId())); 
         s.setSpecialization(p.getSpecialization());
         s.setClinicName(p.getClinicName());
         s.setClinicAddress(p.getClinicAddress());
         s.setAvgRating(p.getAvgRating());
-        s.setAvailable(p.isAvailable());
+        s.setAvailable(p.isAvailable());     
         s.setConsultationFee(p.getConsultationFee());
         s.setProfilePicUrl(p.getProfilePicUrl());
         s.setExperienceYears(p.getExperienceYears());
         return s;
+    }
+
+    @SuppressWarnings("unchecked")
+    private String fetchProviderName(int userId) {
+        try {
+            Map<String, Object> user = restTemplate.getForObject(
+                authServiceUrl + "/auth/internal/users/" + userId, Map.class);
+            return (user != null && user.get("fullName") != null)
+                ? (String) user.get("fullName")
+                : "Unknown";
+        } catch (Exception e) {
+            return "Unknown";
+        }
     }
 }
