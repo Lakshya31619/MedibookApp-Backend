@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Repository
@@ -15,17 +16,16 @@ public interface NotificationRepository extends JpaRepository<Notification, Inte
 
     List<Notification> findByRecipientIdOrderBySentAtDesc(int recipientId);
 
-    List<Notification> findByRecipientIdAndIsRead(int recipientId, boolean isRead);
+    List<Notification> findByRecipientIdAndIsReadOrderBySentAtDesc(int recipientId, boolean isRead);
 
     int countByRecipientIdAndIsRead(int recipientId, boolean isRead);
 
     List<Notification> findByType(String type);
 
-    List<Notification> findByRelatedId(int relatedId);
+    List<Notification> findByRelatedIdAndRelatedType(int relatedId, String relatedType);
 
-    List<Notification> findByRelatedIdAndType(int relatedId, String type);
-
-    void deleteByNotificationId(int notificationId);
+    List<Notification> findByRelatedIdAndTypeAndRelatedType(
+        int relatedId, String type, String relatedType);
 
     @Modifying
     @Transactional
@@ -34,8 +34,8 @@ public interface NotificationRepository extends JpaRepository<Notification, Inte
 
     @Modifying
     @Transactional
-    @Query("DELETE FROM Notification n WHERE n.isRead = true AND " +
-           "n.sentAt < :cutoff")
-    void deleteOldReadNotifications(
-        @Param("cutoff") java.time.LocalDateTime cutoff);
+    @Query("DELETE FROM Notification n WHERE n.isRead = true AND n.sentAt < :cutoff")
+    int deleteOldReadNotifications(@Param("cutoff") LocalDateTime cutoff);
+
+    void deleteByNotificationId(int notificationId);
 }

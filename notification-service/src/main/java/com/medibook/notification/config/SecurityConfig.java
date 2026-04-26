@@ -30,9 +30,16 @@ public class SecurityConfig {
                     "/notifications/bulk",
                     "/notifications/admin/**"
                 ).hasRole("ADMIN")
+
+                .requestMatchers(
+                    "/notifications/events/**",
+                    "/notifications/send"
+                ).authenticated()
+
                 .anyRequest().authenticated()
             )
             .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+
         return http.build();
     }
 }
