@@ -5,10 +5,14 @@ import com.medibook.provider.entity.Provider;
 import com.medibook.provider.repository.ProviderRepository;
 import com.medibook.provider.service.ProviderService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestTemplate;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -16,6 +20,12 @@ public class ProviderServiceImpl implements ProviderService {
 
     @Autowired
     private ProviderRepository providerRepository;
+
+    @Autowired(required = false)
+    private RestTemplate restTemplate;
+
+    @Value("${notification.service.url:http://localhost:8087}")
+    private String notificationServiceUrl;
 
     @Override
     @Transactional
@@ -108,15 +118,14 @@ public class ProviderServiceImpl implements ProviderService {
                 .stream()
                 .map(row -> new SpecializationCount(
                     (String) row[0],
-                    (Long) row[1]
+                    (Long)   row[1]
                 ))
                 .collect(Collectors.toList());
     }
 
     @Override
     public boolean isProviderVerified(int providerId) {
-        Provider provider = getProviderById(providerId);
-        return provider.isVerified();
+        return getProviderById(providerId).isVerified();
     }
 
     @Override
@@ -132,25 +141,18 @@ public class ProviderServiceImpl implements ProviderService {
 
         if (request.getSpecialization() != null && !request.getSpecialization().isBlank())
             provider.setSpecialization(request.getSpecialization());
-
         if (request.getQualification() != null && !request.getQualification().isBlank())
             provider.setQualification(request.getQualification());
-
         if (request.getExperienceYears() > 0)
             provider.setExperienceYears(request.getExperienceYears());
-
         if (request.getBio() != null)
             provider.setBio(request.getBio());
-
         if (request.getClinicName() != null)
             provider.setClinicName(request.getClinicName());
-
         if (request.getClinicAddress() != null)
             provider.setClinicAddress(request.getClinicAddress());
-
         if (request.getConsultationFee() > 0)
             provider.setConsultationFee(request.getConsultationFee());
-
         if (request.getProfilePicUrl() != null)
             provider.setProfilePicUrl(request.getProfilePicUrl());
 
@@ -165,6 +167,13 @@ public class ProviderServiceImpl implements ProviderService {
         provider.setVerificationStatus("APPROVED");
         provider.setRejectionReason(null);
         providerRepository.save(provider);
+
+        sendProviderEvent(
+            "PROVIDER_APPROVED",
+            provider.getUserId(),
+            provider.getProviderName(),
+            null
+        );
     }
 
     @Override
@@ -181,6 +190,13 @@ public class ProviderServiceImpl implements ProviderService {
         provider.setVerificationStatus("REJECTED");
         provider.setRejectionReason(reason);
         providerRepository.save(provider);
+
+        sendProviderEvent(
+            "PROVIDER_REJECTED",
+            provider.getUserId(),
+            provider.getProviderName(),
+            reason
+        );
     }
 
     @Override
@@ -224,5 +240,26 @@ public class ProviderServiceImpl implements ProviderService {
         double clamped = Math.max(0.0, Math.min(5.0, newRating));
         provider.setAvgRating(clamped);
         providerRepository.save(provider);
+    }
+
+    private void sendProviderEvent(String eventType, int recipientUserId,
+                                    String providerName, String rejectionReason) {
+        if (restTemplate == null) return;
+        try {
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("eventType",    eventType);
+            payload.put("providerId",   recipientUserId);
+            payload.put("providerName", providerName != null ? providerName : "Provider");
+            if (rejectionReason != null) payload.put("rejectionReason", rejectionReason);
+
+            restTemplate.postForObject(
+                notificationServiceUrl + "/notifications/events/provider",
+                payload,
+                Map.class
+            );
+        } catch (Exception e) {
+            System.err.println("Warning: Could not send provider notification event: "
+                + e.getMessage());
+        }
     }
 }
