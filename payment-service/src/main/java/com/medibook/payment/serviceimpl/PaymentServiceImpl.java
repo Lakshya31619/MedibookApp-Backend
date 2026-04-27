@@ -8,12 +8,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
-import java.time.Month;
-import java.time.format.TextStyle;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -23,8 +23,17 @@ public class PaymentServiceImpl implements PaymentService {
     @Autowired
     private PaymentRepository paymentRepository;
 
+    @Autowired(required = false)
+    private RestTemplate restTemplate;
+
     @Value("${app.refund.window.hours:24}")
     private int refundWindowHours;
+
+    @Value("${notification.service.url:http://localhost:8087}")
+    private String notificationServiceUrl;
+
+    @Value("${app.admin.userId:1}")
+    private int adminUserId;
 
     @Override
     @Transactional
@@ -55,15 +64,26 @@ public class PaymentServiceImpl implements PaymentService {
             payment.setTransactionId("CASH-" + request.getAppointmentId());
         } else {
             if (request.getTransactionId() == null || request.getTransactionId().isBlank()) {
-                throw new RuntimeException(
-                    "transactionId is required for online payments");
+                throw new RuntimeException("transactionId is required for online payments");
             }
             payment.setStatus("PAID");
             payment.setTransactionId(request.getTransactionId());
             payment.setPaidAt(LocalDateTime.now());
         }
 
-        return paymentRepository.save(payment);
+        Payment saved = paymentRepository.save(payment);
+
+        if (saved.getStatus().equals("PAID")) {
+            sendPaymentEvent(
+                "PAYMENT_RECEIVED",
+                saved.getPaymentId(),
+                saved.getPatientId(),
+                saved.getAmount(),
+                null 
+            );
+        }
+
+        return saved;
     }
 
     @Override
@@ -126,8 +146,7 @@ public class PaymentServiceImpl implements PaymentService {
             return paymentRepository.save(payment);
         }
 
-        LocalDateTime refundDeadline = payment.getPaidAt()
-                .plusHours(refundWindowHours);
+        LocalDateTime refundDeadline = payment.getPaidAt().plusHours(refundWindowHours);
 
         if (LocalDateTime.now().isAfter(refundDeadline)) {
             payment.setNotes("Cancellation outside " + refundWindowHours
@@ -144,7 +163,17 @@ public class PaymentServiceImpl implements PaymentService {
         payment.setNotes("Refund processed. Reason: " + reason
             + ". Refund TxnId: " + refundTxnId);
 
-        return paymentRepository.save(payment);
+        Payment saved = paymentRepository.save(payment);
+
+        sendPaymentEvent(
+            "PAYMENT_REFUNDED",
+            saved.getPaymentId(),
+            saved.getPatientId(),
+            saved.getAmount(),
+            null
+        );
+
+        return saved;
     }
 
     @Override
@@ -153,17 +182,25 @@ public class PaymentServiceImpl implements PaymentService {
         Payment payment = getPaymentByAppointment(appointmentId);
 
         if (!payment.getMode().equals("CASH")) {
-            throw new RuntimeException(
-                "This endpoint is only for CASH payments");
+            throw new RuntimeException("This endpoint is only for CASH payments");
         }
         if (!payment.getStatus().equals("PENDING")) {
-            throw new RuntimeException(
-                "Payment is already " + payment.getStatus());
+            throw new RuntimeException("Payment is already " + payment.getStatus());
         }
 
         payment.setStatus("PAID");
         payment.setPaidAt(LocalDateTime.now());
-        return paymentRepository.save(payment);
+        Payment saved = paymentRepository.save(payment);
+
+        sendPaymentEvent(
+            "PAYMENT_RECEIVED",
+            saved.getPaymentId(),
+            saved.getPatientId(),
+            saved.getAmount(),
+            null
+        );
+
+        return saved;
     }
 
     @Override
@@ -182,8 +219,7 @@ public class PaymentServiceImpl implements PaymentService {
         Payment payment = getPaymentByAppointment(appointmentId);
 
         if (!payment.getStatus().equals("PAID")) {
-            throw new RuntimeException(
-                "Invoice can only be generated for PAID appointments");
+            throw new RuntimeException("Invoice can only be generated for PAID appointments");
         }
 
         Invoice invoice = new Invoice();
@@ -236,9 +272,9 @@ public class PaymentServiceImpl implements PaymentService {
         List<MonthlyRevenue> monthly = paymentRepository.getMonthlyRevenue()
                 .stream()
                 .map(row -> new MonthlyRevenue(
-                    ((Number) row[0]).intValue(),  
-                    ((Number) row[1]).intValue(),   
-                    ((Number) row[2]).doubleValue() 
+                    ((Number) row[0]).intValue(),
+                    ((Number) row[1]).intValue(),
+                    ((Number) row[2]).doubleValue()
                 ))
                 .collect(Collectors.toList());
 
@@ -246,5 +282,29 @@ public class PaymentServiceImpl implements PaymentService {
         report.setTotalRevenue(total);
         report.setMonthlyBreakdown(monthly);
         return report;
+    }
+
+    private void sendPaymentEvent(String eventType, int paymentId,
+                                   int patientId, double amount,
+                                   String appointmentDate) {
+        if (restTemplate == null) return;
+        try {
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("eventType",  eventType);
+            payload.put("paymentId",  paymentId);
+            payload.put("patientId",  patientId);
+            payload.put("adminId",    adminUserId);
+            payload.put("amount",     amount);
+            if (appointmentDate != null) payload.put("appointmentDate", appointmentDate);
+
+            restTemplate.postForObject(
+                notificationServiceUrl + "/notifications/events/payment",
+                payload,
+                Map.class
+            );
+        } catch (Exception e) {
+            System.err.println("Warning: Could not send payment notification event: "
+                + e.getMessage());
+        }
     }
 }
