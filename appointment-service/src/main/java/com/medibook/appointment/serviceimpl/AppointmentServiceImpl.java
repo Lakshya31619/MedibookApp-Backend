@@ -12,6 +12,7 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.client.HttpClientErrorException;
 
 import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -33,20 +34,21 @@ public class AppointmentServiceImpl implements AppointmentService {
     @Value("${notification.service.url}")
     private String notificationServiceUrl;
 
+    @Value("${provider.service.url}")
+    private String providerServiceUrl;
+
     @Override
     @Transactional
     public Appointment bookAppointment(BookAppointmentRequest request) {
 
-        Map slotDetails = fetchSlotDetails(request.getSlotId());
+        Map<String, Object> slotDetails = fetchSlotDetails(request.getSlotId());
         LocalDate appointmentDate = LocalDate.parse((String) slotDetails.get("date"));
+        String startTime = (String) slotDetails.get("startTime");
 
         if (appointmentRepository.existsActiveBooking(
-                request.getPatientId(),
-                request.getProviderId(),
-                appointmentDate)) {
+                request.getPatientId(), request.getProviderId(), appointmentDate)) {
             throw new RuntimeException(
-                "You already have a scheduled appointment with this provider on "
-                + appointmentDate);
+                "You already have a scheduled appointment with this provider on " + appointmentDate);
         }
 
         lockSlot(request.getSlotId());
@@ -60,20 +62,16 @@ public class AppointmentServiceImpl implements AppointmentService {
         appointment.setNotes(request.getNotes());
         appointment.setStatus("SCHEDULED");
         appointment.setAppointmentDate(appointmentDate);
-        appointment.setStartTime(
-            java.time.LocalTime.parse((String) slotDetails.get("startTime")));
-        appointment.setEndTime(
-            java.time.LocalTime.parse((String) slotDetails.get("endTime")));
+        appointment.setStartTime(java.time.LocalTime.parse(startTime));
+        appointment.setEndTime(java.time.LocalTime.parse((String) slotDetails.get("endTime")));
 
         Appointment saved = appointmentRepository.save(appointment);
 
-        sendNotification(
-            request.getPatientId(),
-            "BOOKING",
-            "Appointment confirmed for " + appointmentDate + " at "
-            + appointment.getStartTime(),
-            saved.getAppointmentId()
-        );
+        int providerUserId = resolveProviderUserId(request.getProviderId());
+
+        sendAppointmentEvent("APPOINTMENT_BOOKED", saved.getAppointmentId(),
+            request.getPatientId(), providerUserId,
+            appointmentDate.toString(), startTime, null, null, null);
 
         return saved;
     }
@@ -85,8 +83,7 @@ public class AppointmentServiceImpl implements AppointmentService {
 
         if (!appointment.getStatus().equals("SCHEDULED")) {
             throw new RuntimeException(
-                "Only SCHEDULED appointments can be cancelled. " +
-                "Current status: " + appointment.getStatus());
+                "Only SCHEDULED appointments can be cancelled. Current status: " + appointment.getStatus());
         }
 
         appointment.setStatus("CANCELLED");
@@ -94,21 +91,20 @@ public class AppointmentServiceImpl implements AppointmentService {
         appointmentRepository.save(appointment);
 
         releaseSlot(appointment.getSlotId());
-
         triggerRefund(appointmentId);
 
-        sendNotification(
-            appointment.getPatientId(),
-            "CANCELLATION",
-            "Your appointment on " + appointment.getAppointmentDate() + " has been cancelled.",
-            appointmentId
-        );
+        int providerUserId = resolveProviderUserId(appointment.getProviderId());
+
+        sendAppointmentEvent("APPOINTMENT_CANCELLED", appointmentId,
+            appointment.getPatientId(), providerUserId,
+            appointment.getAppointmentDate().toString(),
+            appointment.getStartTime().toString(),
+            null, null, reason);
     }
 
     @Override
     @Transactional
-    public Appointment rescheduleAppointment(int appointmentId,
-                                              RescheduleRequest request) {
+    public Appointment rescheduleAppointment(int appointmentId, RescheduleRequest request) {
         Appointment appointment = getById(appointmentId);
 
         if (!appointment.getStatus().equals("SCHEDULED")) {
@@ -116,30 +112,25 @@ public class AppointmentServiceImpl implements AppointmentService {
         }
 
         int oldSlotId = appointment.getSlotId();
-
         lockSlot(request.getNewSlotId());
-
         releaseSlot(oldSlotId);
 
-        Map newSlotDetails = fetchSlotDetails(request.getNewSlotId());
+        Map<String, Object> newSlotDetails = fetchSlotDetails(request.getNewSlotId());
+        String newDate = (String) newSlotDetails.get("date");
+        String newTime = (String) newSlotDetails.get("startTime");
 
         appointment.setSlotId(request.getNewSlotId());
-        appointment.setAppointmentDate(
-            LocalDate.parse((String) newSlotDetails.get("date")));
-        appointment.setStartTime(
-            java.time.LocalTime.parse((String) newSlotDetails.get("startTime")));
-        appointment.setEndTime(
-            java.time.LocalTime.parse((String) newSlotDetails.get("endTime")));
+        appointment.setAppointmentDate(LocalDate.parse(newDate));
+        appointment.setStartTime(java.time.LocalTime.parse(newTime));
+        appointment.setEndTime(java.time.LocalTime.parse((String) newSlotDetails.get("endTime")));
 
         Appointment updated = appointmentRepository.save(appointment);
 
-        sendNotification(
-            appointment.getPatientId(),
-            "RESCHEDULE",
-            "Your appointment has been rescheduled to "
-            + appointment.getAppointmentDate(),
-            appointmentId
-        );
+        int providerUserId = resolveProviderUserId(appointment.getProviderId());
+
+        sendAppointmentEvent("APPOINTMENT_RESCHEDULED", appointmentId,
+            appointment.getPatientId(), providerUserId,
+            newDate, newTime, null, null, null);
 
         return updated;
     }
@@ -153,6 +144,14 @@ public class AppointmentServiceImpl implements AppointmentService {
         }
         appointment.setStatus("COMPLETED");
         appointmentRepository.save(appointment);
+
+        int providerUserId = resolveProviderUserId(appointment.getProviderId());
+
+        sendAppointmentEvent("APPOINTMENT_COMPLETED", appointmentId,
+            appointment.getPatientId(), providerUserId,
+            appointment.getAppointmentDate().toString(),
+            appointment.getStartTime().toString(),
+            null, null, null);
     }
 
     @Override
@@ -161,6 +160,14 @@ public class AppointmentServiceImpl implements AppointmentService {
         Appointment appointment = getById(appointmentId);
         appointment.setStatus("NO_SHOW");
         appointmentRepository.save(appointment);
+
+        int providerUserId = resolveProviderUserId(appointment.getProviderId());
+
+        sendAppointmentEvent("APPOINTMENT_NO_SHOW", appointmentId,
+            appointment.getPatientId(), providerUserId,
+            appointment.getAppointmentDate().toString(),
+            appointment.getStartTime().toString(),
+            null, null, null);
     }
 
     @Override
@@ -174,8 +181,7 @@ public class AppointmentServiceImpl implements AppointmentService {
     @Override
     public Appointment getById(int appointmentId) {
         return appointmentRepository.findById(appointmentId)
-                .orElseThrow(() -> new RuntimeException(
-                    "Appointment not found with id: " + appointmentId));
+                .orElseThrow(() -> new RuntimeException("Appointment not found: " + appointmentId));
     }
 
     @Override
@@ -218,85 +224,85 @@ public class AppointmentServiceImpl implements AppointmentService {
         AppointmentCount count = new AppointmentCount();
         count.setProviderId(providerId);
         count.setTotal(appointmentRepository.countByProviderId(providerId));
-        count.setCompleted(appointmentRepository.countByProviderIdAndStatus(
-            providerId, "COMPLETED"));
-        count.setScheduled(appointmentRepository.countByProviderIdAndStatus(
-            providerId, "SCHEDULED"));
-        count.setCancelled(appointmentRepository.countByProviderIdAndStatus(
-            providerId, "CANCELLED"));
+        count.setCompleted(appointmentRepository.countByProviderIdAndStatus(providerId, "COMPLETED"));
+        count.setScheduled(appointmentRepository.countByProviderIdAndStatus(providerId, "SCHEDULED"));
+        count.setCancelled(appointmentRepository.countByProviderIdAndStatus(providerId, "CANCELLED"));
         return count;
     }
 
     @SuppressWarnings("unchecked")
-    private Map fetchSlotDetails(int slotId) {
+    private Map<String, Object> fetchSlotDetails(int slotId) {
         try {
-            return restTemplate.getForObject(
-                scheduleServiceUrl + "/slots/" + slotId,
-                Map.class
-            );
+            return restTemplate.getForObject(scheduleServiceUrl + "/slots/" + slotId, Map.class);
         } catch (Exception e) {
-            throw new RuntimeException(
-                "Could not fetch slot details from schedule-service: " + e.getMessage());
+            throw new RuntimeException("Could not fetch slot details: " + e.getMessage());
         }
     }
 
     private void lockSlot(int slotId) {
         try {
-            restTemplate.put(
-                scheduleServiceUrl + "/slots/" + slotId + "/book",
-                null
-            );
+            restTemplate.put(scheduleServiceUrl + "/slots/" + slotId + "/book", null);
         } catch (HttpClientErrorException e) {
-            throw new RuntimeException(
-                "Slot is no longer available: " + e.getResponseBodyAsString());
+            throw new RuntimeException("Slot is no longer available: " + e.getResponseBodyAsString());
         } catch (Exception e) {
-            throw new RuntimeException(
-                "Could not communicate with schedule-service: " + e.getMessage());
+            throw new RuntimeException("Could not communicate with schedule-service: " + e.getMessage());
         }
     }
 
     private void releaseSlot(int slotId) {
         try {
-            restTemplate.put(
-                scheduleServiceUrl + "/slots/" + slotId + "/release",
-                null
-            );
+            restTemplate.put(scheduleServiceUrl + "/slots/" + slotId + "/release", null);
         } catch (Exception e) {
-            System.err.println("Warning: Could not release slot " + slotId
-                + " in schedule-service: " + e.getMessage());
+            System.err.println("Warning: Could not release slot " + slotId + ": " + e.getMessage());
         }
     }
 
     private void triggerRefund(int appointmentId) {
         try {
             restTemplate.postForObject(
-                paymentServiceUrl + "/payments/refund/" + appointmentId,
-                null,
-                Map.class
-            );
+                paymentServiceUrl + "/payments/refund/" + appointmentId, null, Map.class);
         } catch (Exception e) {
-            System.err.println("Warning: Could not trigger refund for appointment "
-                + appointmentId + ": " + e.getMessage());
+            System.err.println("Warning: Could not trigger refund: " + e.getMessage());
         }
     }
 
-    private void sendNotification(int recipientId, String type,
-                                   String message, int relatedId) {
+    @SuppressWarnings("unchecked")
+    private int resolveProviderUserId(int providerId) {
         try {
-            Map<String, Object> payload = Map.of(
-                "recipientId", recipientId,
-                "type",        type,
-                "message",     message,
-                "relatedId",   relatedId,
-                "relatedType", "APPOINTMENT"
-            );
-            restTemplate.postForObject(
-                notificationServiceUrl + "/notifications/send",
-                payload,
-                Map.class
-            );
+            Map<String, Object> provider = restTemplate.getForObject(
+                providerServiceUrl + "/providers/" + providerId, Map.class);
+            if (provider != null && provider.get("userId") != null) {
+                return ((Number) provider.get("userId")).intValue();
+            }
         } catch (Exception e) {
-            System.err.println("Warning: Could not send notification: " + e.getMessage());
+            System.err.println("Warning: Could not resolve provider userId for providerId="
+                + providerId + " — falling back to providerId. Error: " + e.getMessage());
+        }
+        return providerId;
+    }
+
+    private void sendAppointmentEvent(String eventType, int appointmentId,
+                                       int patientId, int providerUserId,
+                                       String appointmentDate, String appointmentTime,
+                                       String providerName, String patientName,
+                                       String cancellationReason) {
+        try {
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("eventType",       eventType);
+            payload.put("appointmentId",   appointmentId);
+            payload.put("patientId",       patientId);
+            payload.put("providerId",      providerUserId);
+            payload.put("appointmentDate", appointmentDate);
+            payload.put("appointmentTime", appointmentTime);
+            if (providerName       != null) payload.put("providerName",       providerName);
+            if (patientName        != null) payload.put("patientName",        patientName);
+            if (cancellationReason != null) payload.put("cancellationReason", cancellationReason);
+
+            restTemplate.postForObject(
+                notificationServiceUrl + "/notifications/events/appointment",
+                payload, Map.class);
+        } catch (Exception e) {
+            System.err.println("Warning: Could not send appointment notification: " + e.getMessage());
         }
     }
 }
