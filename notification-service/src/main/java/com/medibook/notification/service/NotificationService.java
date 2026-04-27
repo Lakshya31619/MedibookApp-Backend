@@ -11,11 +11,19 @@ public interface NotificationService {
 
     BulkSendResult sendBulk(BulkNotificationRequest request);
 
+    void handleAppointmentEvent(AppointmentEventRequest event);
+
+    void handlePaymentEvent(PaymentEventRequest event);
+
+    void handleProviderEvent(ProviderEventRequest event);
+
     List<Notification> getByRecipient(int recipientId);
 
     List<Notification> getUnreadByRecipient(int recipientId);
 
     int getUnreadCount(int recipientId);
+
+    List<Notification> getAll();
 
     void markAsRead(int notificationId);
 
@@ -23,9 +31,7 @@ public interface NotificationService {
 
     void deleteNotification(int notificationId);
 
-    List<Notification> getAll();
+    int cleanup(int daysOld);
 
     void sendEmail(String to, String subject, String body);
-
-    void sendSms(String phoneNumber, String message);
 }

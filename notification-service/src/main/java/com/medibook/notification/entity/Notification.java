@@ -10,10 +10,11 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "notifications",
        indexes = {
-           @Index(name = "idx_recipient",  columnList = "recipientId"),
-           @Index(name = "idx_is_read",    columnList = "isRead"),
-           @Index(name = "idx_type",       columnList = "type"),
-           @Index(name = "idx_related",    columnList = "relatedId")
+           @Index(name = "idx_recipient",       columnList = "recipientId"),
+           @Index(name = "idx_is_read",          columnList = "isRead"),
+           @Index(name = "idx_type",             columnList = "type"),
+           @Index(name = "idx_related",          columnList = "relatedId"),
+           @Index(name = "idx_recipient_unread", columnList = "recipientId, isRead")
        })
 @Data
 @NoArgsConstructor
@@ -27,22 +28,22 @@ public class Notification {
     @Column(nullable = false)
     private int recipientId;
 
-    @Column(nullable = false)
+    @Column(nullable = false, length = 64)
     private String type;
 
-    @Column(nullable = false)
+    @Column(nullable = false, length = 256)
     private String title;
 
     @Column(nullable = false, columnDefinition = "TEXT")
     private String message;
 
-    @Column(nullable = false)
+    @Column(nullable = false, length = 16)
     private String channel;
 
     @Column
     private int relatedId;
 
-    @Column
+    @Column(length = 64)
     private String relatedType;
 
     @Column(nullable = false)
