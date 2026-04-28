@@ -61,6 +61,7 @@ public class AppointmentDto {
     @Data
     public static class AppointmentSummary {
         private int appointmentId;
+        private int patientId;
         private int providerId;
         private String serviceType;
         private String appointmentDate;

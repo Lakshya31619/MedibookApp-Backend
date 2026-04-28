@@ -207,6 +207,7 @@ public class AppointmentResource {
     private AppointmentSummary toSummary(Appointment a) {
         AppointmentSummary s = new AppointmentSummary();
         s.setAppointmentId(a.getAppointmentId());
+        s.setPatientId(a.getPatientId());
         s.setProviderId(a.getProviderId());
         s.setServiceType(a.getServiceType());
         s.setAppointmentDate(a.getAppointmentDate().toString());
