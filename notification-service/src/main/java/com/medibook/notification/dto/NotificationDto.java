@@ -68,6 +68,7 @@ public class NotificationDto {
         private String channel;
         private int    relatedId;
         private String relatedType;
+        @com.fasterxml.jackson.annotation.JsonProperty("isRead")
         private boolean isRead;
         private String sentAt;
     }
