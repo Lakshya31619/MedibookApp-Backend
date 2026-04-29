@@ -45,3 +45,8 @@ mvn spring-boot:run
 cd record-service
 $env:SPRING_PROFILES_ACTIVE="local"
 mvn spring-boot:run
+
+//Microservice 9 - Eureka Service //
+
+cd eureka-service
+mvn spring-boot:run
