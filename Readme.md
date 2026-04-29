@@ -50,3 +50,8 @@ mvn spring-boot:run
 
 cd eureka-service
 mvn spring-boot:run
+
+//Microservice 10 - API Gateway
+
+cd api-gateway
+mvn spring-boot:run

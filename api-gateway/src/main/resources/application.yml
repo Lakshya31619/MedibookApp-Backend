@@ -1,0 +1,111 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+
+      routes:
+
+        # ── Auth Service (port 8081) ──────────────────────────────────────
+        - id: auth-service
+          uri: lb://auth-service
+          predicates:
+            - Path=/api/auth/**
+          filters:
+            - StripPrefix=0
+
+        # ── Provider Service (port 8082) ──────────────────────────────────
+        - id: provider-service
+          uri: lb://provider-service
+          predicates:
+            - Path=/api/providers/**
+          filters:
+            - StripPrefix=0
+
+        # ── Schedule Service (port 8083) ──────────────────────────────────
+        - id: schedule-service
+          uri: lb://schedule-service
+          predicates:
+            - Path=/api/schedules/**
+          filters:
+            - StripPrefix=0
+
+        # ── Appointment Service (port 8084) ───────────────────────────────
+        - id: appointment-service
+          uri: lb://appointment-service
+          predicates:
+            - Path=/api/appointments/**
+          filters:
+            - StripPrefix=0
+
+        # ── Payment Service (port 8085) ───────────────────────────────────
+        - id: payment-service
+          uri: lb://payment-service
+          predicates:
+            - Path=/api/payments/**
+          filters:
+            - StripPrefix=0
+
+        # ── Review Service (port 8086) ────────────────────────────────────
+        - id: review-service
+          uri: lb://review-service
+          predicates:
+            - Path=/api/reviews/**
+          filters:
+            - StripPrefix=0
+
+        # ── Notification Service (port 8087) ──────────────────────────────
+        - id: notification-service
+          uri: lb://notification-service
+          predicates:
+            - Path=/api/notifications/**
+          filters:
+            - StripPrefix=0
+
+        # ── Record Service (port 8088) ────────────────────────────────────
+        - id: record-service
+          uri: lb://record-service
+          predicates:
+            - Path=/api/records/**
+          filters:
+            - StripPrefix=0
+
+# ── Eureka Client ─────────────────────────────────────────────────────────
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka}
+    fetch-registry: true
+    register-with-eureka: true
+  instance:
+    prefer-ip-address: true
+
+# ── JWT ───────────────────────────────────────────────────────────────────
+app:
+  jwt:
+    secret: ${JWT_SECRET:changeme-set-this-in-local-properties}
+
+# ── Actuator ──────────────────────────────────────────────────────────────
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway
+  endpoint:
+    health:
+      show-details: always
+    gateway:
+      enabled: true
+
+logging:
+  level:
+    com.medibook: INFO
+    org.springframework.cloud.gateway: INFO
