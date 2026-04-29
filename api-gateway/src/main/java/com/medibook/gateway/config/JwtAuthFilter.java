@@ -31,7 +31,11 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
             "/login/oauth2",        // OAuth2 callback from Google
             "/oauth2",              // OAuth2 redirect URIs
             "/actuator",            // health check endpoints
-            "/eureka"               // Eureka dashboard
+            "/eureka",              // Eureka dashboard
+            "/swagger-ui",          // Swagger UI
+            "/swagger-ui.html",     // Swagger UI entry point
+            "/v3/api-docs",         // OpenAPI docs (all services)
+            "/webjars"              // Swagger UI static assets
     );
 
     @Override

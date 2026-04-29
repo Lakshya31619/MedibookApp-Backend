@@ -25,6 +25,17 @@ public class SecurityConfig {
             .sessionManagement(session ->
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
+
+                // ✅ Swagger / OpenAPI — allow without auth
+                .requestMatchers(
+                    "/v3/api-docs",
+                    "/v3/api-docs/**",
+                    "/swagger-ui/**",
+                    "/swagger-ui.html",
+                    "/webjars/**",
+                    "/actuator/**"
+                ).permitAll()
+
                 .requestMatchers(
                     "/notifications/all",
                     "/notifications/bulk",
