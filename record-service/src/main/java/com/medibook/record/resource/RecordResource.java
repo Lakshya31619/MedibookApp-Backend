@@ -16,7 +16,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/records")
-@CrossOrigin(origins = "*")
 public class RecordResource {
 
     @Autowired
