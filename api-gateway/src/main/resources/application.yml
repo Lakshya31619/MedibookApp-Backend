@@ -20,9 +20,25 @@ spring:
           predicates:
             - Path=/api/auth/**
           filters:
+            - StripPrefix=1
+
+        # ── Auth Service OAuth2 ───────────────────────────────────────────
+        - id: auth-service-oauth2
+          uri: lb://auth-service
+          predicates:
+            - Path=/oauth2/**
+          filters:
             - StripPrefix=0
 
-        # ── Auth Service OpenAPI docs ─────────────────────────────────────
+        # ── Auth Service OAuth2 Callback ──────────────────────────────────
+        - id: auth-service-oauth2-callback
+          uri: lb://auth-service
+          predicates:
+            - Path=/login/oauth2/**
+          filters:
+            - StripPrefix=0
+
+        # ── Auth Service OpenAPI docs (no context-path on auth-service) ───
         - id: auth-service-docs
           uri: lb://auth-service
           predicates:
@@ -44,13 +60,13 @@ spring:
           predicates:
             - Path=/v3/api-docs/provider-service
           filters:
-            - RewritePath=/v3/api-docs/provider-service, /v3/api-docs
+            - RewritePath=/v3/api-docs/provider-service, /api/v3/api-docs
 
         # ── Schedule Service (port 8083) ──────────────────────────────────
         - id: schedule-service
           uri: lb://schedule-service
           predicates:
-            - Path=/api/schedules/**
+            - Path=/api/slots/**
           filters:
             - StripPrefix=0
 
@@ -60,7 +76,7 @@ spring:
           predicates:
             - Path=/v3/api-docs/schedule-service
           filters:
-            - RewritePath=/v3/api-docs/schedule-service, /v3/api-docs
+            - RewritePath=/v3/api-docs/schedule-service, /api/v3/api-docs
 
         # ── Appointment Service (port 8084) ───────────────────────────────
         - id: appointment-service
@@ -76,7 +92,7 @@ spring:
           predicates:
             - Path=/v3/api-docs/appointment-service
           filters:
-            - RewritePath=/v3/api-docs/appointment-service, /v3/api-docs
+            - RewritePath=/v3/api-docs/appointment-service, /api/v3/api-docs
 
         # ── Payment Service (port 8085) ───────────────────────────────────
         - id: payment-service
@@ -92,7 +108,7 @@ spring:
           predicates:
             - Path=/v3/api-docs/payment-service
           filters:
-            - RewritePath=/v3/api-docs/payment-service, /v3/api-docs
+            - RewritePath=/v3/api-docs/payment-service, /api/v3/api-docs
 
         # ── Review Service (port 8086) ────────────────────────────────────
         - id: review-service
@@ -108,7 +124,7 @@ spring:
           predicates:
             - Path=/v3/api-docs/review-service
           filters:
-            - RewritePath=/v3/api-docs/review-service, /v3/api-docs
+            - RewritePath=/v3/api-docs/review-service, /api/v3/api-docs
 
         # ── Notification Service (port 8087) ──────────────────────────────
         - id: notification-service
@@ -124,7 +140,7 @@ spring:
           predicates:
             - Path=/v3/api-docs/notification-service
           filters:
-            - RewritePath=/v3/api-docs/notification-service, /v3/api-docs
+            - RewritePath=/v3/api-docs/notification-service, /api/v3/api-docs
 
         # ── Record Service (port 8088) ────────────────────────────────────
         - id: record-service
@@ -140,7 +156,7 @@ spring:
           predicates:
             - Path=/v3/api-docs/record-service
           filters:
-            - RewritePath=/v3/api-docs/record-service, /v3/api-docs
+            - RewritePath=/v3/api-docs/record-service, /api/v3/api-docs
 
 # ── Eureka Client ─────────────────────────────────────────────────────────
 eureka:
@@ -155,7 +171,7 @@ eureka:
 # ── JWT ───────────────────────────────────────────────────────────────────
 app:
   jwt:
-    secret: ${JWT_SECRET:changeme-set-this-in-local-properties}
+    secret: ${JWT_SECRET:MediBookSuperSecretKeyForJWTSigningMustBe256BitsLong!}
 
 # ── Springdoc Swagger Aggregation ─────────────────────────────────────────
 springdoc:

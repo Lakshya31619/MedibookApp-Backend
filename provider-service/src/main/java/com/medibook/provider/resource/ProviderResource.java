@@ -17,7 +17,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/providers")
-@CrossOrigin(origins = "*")
 public class ProviderResource {
 
     @Autowired
