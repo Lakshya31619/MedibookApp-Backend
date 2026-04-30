@@ -17,7 +17,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/slots")
-@CrossOrigin(origins = "*")
 public class ScheduleResource {
 
     @Autowired
