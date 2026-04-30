@@ -22,7 +22,6 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
 
     private final JwtUtil jwtUtil;
 
-    // Paths that do NOT require a JWT token
     private static final List<String> PUBLIC_PATHS = List.of(
             "/api/auth/login",
             "/api/auth/register",
@@ -35,7 +34,16 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
             "/swagger-ui",          // Swagger UI
             "/swagger-ui.html",     // Swagger UI entry point
             "/v3/api-docs",         // OpenAPI docs (all services)
-            "/webjars"              // Swagger UI static assets
+            "/webjars",             // Swagger UI static assets
+
+            "/api/providers",                   // GET /api/providers (list all) + /{id}
+            "/api/providers/search",            // GET /api/providers/search
+            "/api/providers/specialization",    // GET /api/providers/specialization/{spec}
+            "/api/providers/location",          // GET /api/providers/location
+
+            "/api/reviews/provider",            // GET /api/reviews/provider/{id}
+            "/api/reviews/rating",              // GET /api/reviews/rating/{id}
+            "/api/reviews/summary"              // GET /api/reviews/summary/{id}
     );
 
     @Override
@@ -49,7 +57,6 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
             return chain.filter(exchange);
         }
 
-        // Extract Authorization header
         String authHeader = request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
 
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
@@ -64,7 +71,6 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
             return unauthorizedResponse(exchange);
         }
 
-        // Forward validated user info as request headers to downstream services
         String username = jwtUtil.extractUsername(token);
         String role     = jwtUtil.extractRole(token);
 
@@ -86,6 +92,6 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
 
     @Override
     public int getOrder() {
-        return -1; // Run before all other filters
+        return -1;
     }
 }
