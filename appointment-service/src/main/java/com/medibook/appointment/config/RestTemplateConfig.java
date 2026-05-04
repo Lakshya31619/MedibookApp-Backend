@@ -23,7 +23,7 @@ public class RestTemplateConfig {
         restTemplate.setInterceptors(List.of(new JwtForwardingInterceptor()));
         return restTemplate;
     }
-    
+
     static class JwtForwardingInterceptor implements ClientHttpRequestInterceptor {
         @Override
         public ClientHttpResponse intercept(HttpRequest request,
