@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.core.user.OAuth2User;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
 
@@ -21,6 +22,9 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
 
     @Autowired
     private JwtUtil jwtUtil;
+
+    @Value("${app.frontend.oauth2-callback-url:http://localhost:3000/oauth2/callback}")
+    private String oauth2CallbackUrl;
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request,
@@ -50,7 +54,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
 
         String token = jwtUtil.generateToken(user.getEmail(), user.getRole(), user.getUserId());
 
-        String redirectUrl = "http://localhost:3000/oauth2/callback?token=" + token;
+        String redirectUrl = oauth2CallbackUrl + "?token=" + token;
         getRedirectStrategy().sendRedirect(request, response, redirectUrl);
     }
 }

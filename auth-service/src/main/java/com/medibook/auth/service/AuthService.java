@@ -28,4 +28,6 @@ public interface AuthService {
     void deactivateAccount(int userId);
 
     List<User> getUsersByRole(String role);
+
+    List<User> getAllUsers();
 }
