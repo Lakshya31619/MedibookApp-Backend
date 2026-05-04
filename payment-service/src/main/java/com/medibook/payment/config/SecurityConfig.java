@@ -36,17 +36,28 @@ public class SecurityConfig {
                     "/actuator/**"
                 ).permitAll()
 
+                // Admin-only
                 .requestMatchers(
                     "/payments/admin/**",
                     "/payments/all",
                     "/payments/revenue/**"
                 ).hasRole("ADMIN")
 
+                // Provider or Admin
                 .requestMatchers(
                     "/payments/earnings/**",
                     "/payments/confirm-cash/**",
                     "/payments/provider/**"
                 ).hasAnyRole("PROVIDER", "ADMIN")
+
+                // FIX: Razorpay refund endpoint — provider or admin only
+                // create-order and verify are open to any authenticated user (patient)
+                .requestMatchers("/payments/razorpay/refund/**")
+                    .hasAnyRole("PROVIDER", "ADMIN")
+
+                // All other /payments/razorpay/** routes (create-order, verify)
+                // require authentication but no specific role — any logged-in patient qualifies
+                .requestMatchers("/payments/razorpay/**").authenticated()
 
                 .anyRequest().authenticated()
             )
