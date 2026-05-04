@@ -27,26 +27,26 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
             "/api/auth/register",
             "/api/auth/refresh",
             "/api/auth/oauth2",
-            "/login/oauth2",        // OAuth2 callback from Google
-            "/oauth2",              // OAuth2 redirect URIs
-            "/actuator",            // health check endpoints
-            "/eureka",              // Eureka dashboard
-            "/swagger-ui",          // Swagger UI
-            "/swagger-ui.html",     // Swagger UI entry point
-            "/v3/api-docs",         // OpenAPI docs (all services)
-            "/webjars",             // Swagger UI static assets
+            "/login/oauth2",    
+            "/oauth2",            
+            "/actuator",            
+            "/eureka",             
+            "/swagger-ui",          
+            "/swagger-ui.html",    
+            "/v3/api-docs",         
+            "/webjars",             
 
-            "/api/providers",                   // GET /api/providers (list all) + /{id}
-            "/api/providers/search",            // GET /api/providers/search
-            "/api/providers/specialization",    // GET /api/providers/specialization/{spec}
-            "/api/providers/location",          // GET /api/providers/location
+            "/api/providers",                  
+            "/api/providers/search",            
+            "/api/providers/specialization",    
+            "/api/providers/location",          
 
-            "/api/reviews/provider",            // GET /api/reviews/provider/{id}
-            "/api/reviews/rating",              // GET /api/reviews/rating/{id}
-            "/api/reviews/summary",             // GET /api/reviews/summary/{id}
+            "/api/reviews/provider",          
+            "/api/reviews/rating",          
+            "/api/reviews/summary",            
 
-            "/api/slots/available",              // GET /api/slots/available/{providerId}
-            "/api/slots/provider"               // GET /api/slots/provider/{providerId}/available
+            "/api/slots/available",   
+            "/api/slots/provider"  
     );
 
     @Override
@@ -54,7 +54,6 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
         ServerHttpRequest request = exchange.getRequest();
         String path = request.getURI().getPath();
 
-        // Allow public endpoints through without token check
         boolean isPublic = PUBLIC_PATHS.stream().anyMatch(path::startsWith);
         if (isPublic) {
             return chain.filter(exchange);
