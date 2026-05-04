@@ -43,7 +43,10 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
 
             "/api/reviews/provider",            // GET /api/reviews/provider/{id}
             "/api/reviews/rating",              // GET /api/reviews/rating/{id}
-            "/api/reviews/summary"              // GET /api/reviews/summary/{id}
+            "/api/reviews/summary",             // GET /api/reviews/summary/{id}
+
+            "/api/slots/available",              // GET /api/slots/available/{providerId}
+            "/api/slots/provider"               // GET /api/slots/provider/{providerId}/available
     );
 
     @Override
