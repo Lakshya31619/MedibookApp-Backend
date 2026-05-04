@@ -144,7 +144,7 @@ public class AuthResource {
     public ResponseEntity<?> getAllUsers(@RequestParam(required = false) String role) {
         List<User> users = (role != null)
                 ? authService.getUsersByRole(role)
-                : authService.getUsersByRole("PATIENT");
+                : authService.getAllUsers();
 
         return ResponseEntity.ok(users.stream().map(this::mapToResponse).toList());
     }

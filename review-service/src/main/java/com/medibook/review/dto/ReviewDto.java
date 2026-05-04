@@ -1,5 +1,6 @@
 package com.medibook.review.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.*;
 import lombok.Data;
 
@@ -27,6 +28,7 @@ public class ReviewDto {
 
         private String comment;
 
+        @JsonProperty("isAnonymous")
         private boolean isAnonymous = false;
     }
 
@@ -38,6 +40,8 @@ public class ReviewDto {
         private Integer rating;
 
         private String comment;
+
+        @JsonProperty("isAnonymous")
         private Boolean isAnonymous;
     }
 
@@ -56,9 +60,16 @@ public class ReviewDto {
         private int rating;
         private String comment;
         private String reviewDate;
+
+        @JsonProperty("isVerified")
         private boolean isVerified;
+
+        @JsonProperty("isAnonymous")
         private boolean isAnonymous;
+
+        @JsonProperty("isFlagged")
         private boolean isFlagged;
+
         private String flagReason;
         private String createdAt;
     }
@@ -70,6 +81,8 @@ public class ReviewDto {
         private int rating;
         private String comment;
         private String reviewDate;
+
+        @JsonProperty("isVerified")
         private boolean isVerified;
     }
 

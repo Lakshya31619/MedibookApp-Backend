@@ -154,6 +154,11 @@ public class AuthServiceImpl implements AuthService {
         userRepository.save(user);
     }
 
+    @Override
+    public List<User> getAllUsers() {
+        return userRepository.findAll();
+    }
+
     private UserResponse mapToUserResponse(User user) {
         UserResponse r = new UserResponse();
         r.setUserId(user.getUserId());
