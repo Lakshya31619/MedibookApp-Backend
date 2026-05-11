@@ -30,4 +30,8 @@ public interface AuthService {
     List<User> getUsersByRole(String role);
 
     List<User> getAllUsers();
+
+    void sendVerificationCode(String email);
+
+    void verifyEmail(String email, String code);
 }

@@ -147,5 +147,6 @@ public class NotificationDto {
         private String providerName;
         private String rejectionReason;
         private String providerEmail;
+        private Integer adminId;
     }
 }

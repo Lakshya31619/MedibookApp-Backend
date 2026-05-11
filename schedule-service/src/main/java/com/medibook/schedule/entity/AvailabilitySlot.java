@@ -1,6 +1,7 @@
 package com.medibook.schedule.entity;
 
 import jakarta.persistence.*;
+import java.io.Serializable;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
@@ -13,12 +14,14 @@ import java.time.LocalTime;
 @Table(name = "availability_slots",
        indexes = {
            @Index(name = "idx_provider_date", columnList = "providerId, date"),
-           @Index(name = "idx_provider_booked", columnList = "providerId, isBooked")
+           @Index(name = "idx_provider_booked", columnList = "providerId, booked")
        })
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class AvailabilitySlot {
+public class AvailabilitySlot implements Serializable {
+
+    private static final long serialVersionUID = 1L;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -39,11 +42,15 @@ public class AvailabilitySlot {
     @Column(nullable = false)
     private int durationMinutes;
 
+    // FIX: renamed from isBooked -> booked (and isBlocked -> blocked).
+    // Lombok @Data on a field named "isBooked" generates getter isBooked() + setter setBooked(),
+    // which breaks Jackson serialization (it sees two "booked" properties) and causes
+    // JPA column-mapping issues with some Hibernate versions.
     @Column(nullable = false)
-    private boolean isBooked = false;
+    private boolean booked = false;
 
     @Column(nullable = false)
-    private boolean isBlocked = false;
+    private boolean blocked = false;
 
     @Column
     private String recurrence = "NONE";

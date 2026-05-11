@@ -16,12 +16,12 @@ public interface ProviderRepository extends JpaRepository<Provider, Integer> {
 
     List<Provider> findBySpecialization(String specialization);
 
-    List<Provider> findByIsVerified(boolean isVerified);
+    List<Provider> findByVerified(boolean verified);
 
-    List<Provider> findByIsAvailable(boolean isAvailable);
+    List<Provider> findByAvailable(boolean available);
 
-    List<Provider> findBySpecializationAndIsVerifiedAndIsAvailable(
-            String specialization, boolean isVerified, boolean isAvailable);
+    List<Provider> findBySpecializationAndVerifiedAndAvailable(
+            String specialization, boolean verified, boolean available);
 
     @Query("SELECT p FROM Provider p WHERE " +
            "LOWER(p.providerName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
@@ -30,18 +30,18 @@ public interface ProviderRepository extends JpaRepository<Provider, Integer> {
            "LOWER(p.clinicName) LIKE LOWER(CONCAT('%', :keyword, '%'))")
     List<Provider> searchProviders(@Param("keyword") String keyword);
 
-    List<Provider> findByClinicAddressContainingIgnoreCaseAndIsVerified(
-            String location, boolean isVerified);
+    List<Provider> findByClinicAddressContainingIgnoreCaseAndVerified(
+            String location, boolean verified);
 
     @Query("SELECT p.specialization, COUNT(p) FROM Provider p GROUP BY p.specialization")
     List<Object[]> countBySpecialization();
 
-    List<Provider> findByIsVerifiedOrderByAvgRatingDesc(boolean isVerified);
+    List<Provider> findByVerifiedOrderByAvgRatingDesc(boolean verified);
 
     boolean existsByUserId(int userId);
 
-    List<Provider> findByAvgRatingGreaterThanEqualAndIsVerified(
-            double minRating, boolean isVerified);
+    List<Provider> findByAvgRatingGreaterThanEqualAndVerified(
+            double minRating, boolean verified);
 
     List<Provider> findByVerificationStatus(String verificationStatus);
 }

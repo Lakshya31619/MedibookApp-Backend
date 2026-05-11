@@ -14,6 +14,7 @@ public final class NotificationType {
 
     public static final String NEW_BOOKING_FOR_PROVIDER = "NEW_BOOKING_FOR_PROVIDER";
     public static final String BOOKING_CANCELLED_FOR_PROVIDER = "BOOKING_CANCELLED_FOR_PROVIDER";
+    public static final String PROVIDER_REGISTERED   = "PROVIDER_REGISTERED";
     public static final String PROVIDER_APPROVED     = "PROVIDER_APPROVED";
     public static final String PROVIDER_REJECTED     = "PROVIDER_REJECTED";
 

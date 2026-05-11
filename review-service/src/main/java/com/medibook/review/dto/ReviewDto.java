@@ -4,7 +4,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.*;
 import lombok.Data;
 
-import java.util.List;
 import java.util.Map;
 
 public class ReviewDto {

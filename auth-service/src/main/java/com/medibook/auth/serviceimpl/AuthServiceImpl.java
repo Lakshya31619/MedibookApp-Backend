@@ -2,15 +2,24 @@ package com.medibook.auth.serviceimpl;
 
 import com.medibook.auth.config.JwtUtil;
 import com.medibook.auth.dto.AuthDto.*;
+import com.medibook.auth.entity.EmailVerification;
 import com.medibook.auth.entity.User;
+import com.medibook.auth.repository.EmailVerificationRepository;
 import com.medibook.auth.repository.UserRepository;
 import com.medibook.auth.service.AuthService;
+import com.medibook.auth.service.EmailService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.security.SecureRandom;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class AuthServiceImpl implements AuthService {
@@ -24,17 +33,37 @@ public class AuthServiceImpl implements AuthService {
     @Autowired
     private JwtUtil jwtUtil;
 
+    @Autowired
+    private EmailService emailService;
+
+    @Autowired
+    private EmailVerificationRepository verificationRepository;
+
+    @Value("${app.verification.code.expiry-minutes:10}")
+    private int codeExpiryMinutes;
+
+    private final SecureRandom random = new SecureRandom();
+
     @Override
     @Transactional
     public User register(RegisterRequest request) {
 
-        if (userRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("Email is already registered: " + request.getEmail());
-        }
-
         String role = request.getRole().toUpperCase();
         if (!role.equals("PATIENT") && !role.equals("PROVIDER")) {
             throw new RuntimeException("Role must be PATIENT or PROVIDER");
+        }
+
+        Optional<User> existing = userRepository.findByEmail(request.getEmail());
+        if (existing.isPresent()) {
+            User existingUser = existing.get();
+            // If already verified — block re-registration
+            if (existingUser.isEmailVerified()) {
+                throw new RuntimeException("Email is already registered: " + request.getEmail());
+            }
+            // If NOT verified — delete old unverified user + any pending code and allow fresh signup
+            verificationRepository.deleteByEmail(request.getEmail());
+            userRepository.delete(existingUser);
+            userRepository.flush(); // ensure delete is flushed before re-insert
         }
 
         String hashedPassword = passwordEncoder.encode(request.getPassword());
@@ -45,7 +74,8 @@ public class AuthServiceImpl implements AuthService {
         user.setPasswordHash(hashedPassword);
         user.setPhone(request.getPhone());
         user.setRole(role);
-        user.setActive(true);
+        user.setActive(false);
+        user.setEmailVerified(false);
 
         return userRepository.save(user);
     }
@@ -55,6 +85,10 @@ public class AuthServiceImpl implements AuthService {
 
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("No account found for: " + email));
+
+        if (!user.isEmailVerified()) {
+            throw new RuntimeException("EMAIL_NOT_VERIFIED");
+        }
 
         if (!user.isActive()) {
             throw new RuntimeException("Account is suspended. Please contact support.");
@@ -83,6 +117,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    @Cacheable(value = "tokenValidation", key = "#token")
     public boolean validateToken(String token) {
         return jwtUtil.validateToken(token);
     }
@@ -99,12 +134,14 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    @Cacheable(value = "users", key = "'email:' + #email")
     public User getUserByEmail(String email) {
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found: " + email));
     }
 
     @Override
+    @Cacheable(value = "users", key = "'id:' + #userId")
     public User getUserById(int userId) {
         return userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found with id: " + userId));
@@ -117,8 +154,10 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     @Transactional
+    @CacheEvict(value = "users", allEntries = true)
     public User updateProfile(int userId, UpdateProfileRequest request) {
-        User user = getUserById(userId);
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found with id: " + userId));
 
         if (request.getFullName() != null && !request.getFullName().isBlank()) {
             user.setFullName(request.getFullName());
@@ -135,8 +174,10 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     @Transactional
+    @CacheEvict(value = "users", allEntries = true)
     public void changePassword(int userId, ChangePasswordRequest request) {
-        User user = getUserById(userId);
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found with id: " + userId));
 
         if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash())) {
             throw new RuntimeException("Current password is incorrect");
@@ -148,10 +189,62 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     @Transactional
+    @CacheEvict(value = "users", allEntries = true)
     public void deactivateAccount(int userId) {
-        User user = getUserById(userId);
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found with id: " + userId));
         user.setActive(false);
         userRepository.save(user);
+    }
+
+    @Override
+    @Transactional
+    public void sendVerificationCode(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("No account found for: " + email));
+
+        if (user.isEmailVerified()) {
+            throw new RuntimeException("Email is already verified.");
+        }
+
+        String code = String.format("%06d", random.nextInt(1_000_000));
+        LocalDateTime expiry = LocalDateTime.now().plusMinutes(codeExpiryMinutes);
+
+        verificationRepository.deleteByEmail(email);
+        verificationRepository.save(new EmailVerification(email, code, expiry));
+
+        emailService.sendVerificationCode(email, user.getFullName(), code);
+    }
+
+    @Override
+    @Transactional
+    public void verifyEmail(String email, String code) {
+        EmailVerification verification = verificationRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("No verification code found. Please request a new one."));
+
+        if (verification.isUsed()) {
+            throw new RuntimeException("This code has already been used. Please request a new one.");
+        }
+
+        if (verification.isExpired()) {
+            verificationRepository.deleteByEmail(email);
+            throw new RuntimeException("Verification code has expired. Please request a new one.");
+        }
+
+        if (!verification.getCode().equals(code)) {
+            throw new RuntimeException("Invalid verification code.");
+        }
+
+        verification.setUsed(true);
+        verificationRepository.save(verification);
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found."));
+        user.setEmailVerified(true);
+        user.setActive(true);
+        userRepository.save(user);
+
+        verificationRepository.deleteByEmail(email);
     }
 
     @Override

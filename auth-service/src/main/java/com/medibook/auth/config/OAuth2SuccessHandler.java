@@ -48,9 +48,22 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
             newUser.setRole("PATIENT");
             newUser.setProvider(providerName);
             newUser.setProfilePicUrl(picture);
+            // FIX: OAuth2 users are already verified by their provider; mark them active
             newUser.setActive(true);
+            newUser.setEmailVerified(true);
             return userRepository.save(newUser);
         });
+
+        // FIX: If an existing user previously registered with email/password and then
+        // signs in with OAuth2, ensure they are still active and verified.
+        if (!user.isEmailVerified() || !user.isActive()) {
+            user.setEmailVerified(true);
+            user.setActive(true);
+            if (user.getProvider() == null) {
+                user.setProvider(providerName);
+            }
+            userRepository.save(user);
+        }
 
         String token = jwtUtil.generateToken(user.getEmail(), user.getRole(), user.getUserId());
 
