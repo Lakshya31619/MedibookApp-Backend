@@ -5,10 +5,12 @@ import com.medibook.review.entity.Review;
 import com.medibook.review.service.ReviewService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
 import java.util.Map;
@@ -19,6 +21,12 @@ public class ReviewResource {
 
     @Autowired
     private ReviewService reviewService;
+
+    @Autowired
+    private RestTemplate restTemplate;
+
+    @Value("${auth.service.url}")
+    private String authServiceUrl;
 
     @GetMapping("/provider/{providerId}")
     public ResponseEntity<List<PublicReview>> getByProvider(@PathVariable int providerId) {
@@ -171,13 +179,34 @@ public class ReviewResource {
     private PublicReview toPublicReview(Review r) {
         PublicReview pr = new PublicReview();
         pr.setReviewId(r.getReviewId());
-        pr.setPatientLabel(r.isAnonymous()
-            ? "Anonymous"
-            : "Patient #" + r.getPatientId());
+
+        String label;
+        if (r.isAnonymous()) {
+            label = "Anonymous";
+        } else {
+            label = fetchPatientName(r.getPatientId());
+        }
+        pr.setPatientLabel(label);
+
         pr.setRating(r.getRating());
         pr.setComment(r.getComment());
         pr.setReviewDate(r.getReviewDate() != null ? r.getReviewDate().toString() : "");
         pr.setVerified(r.isVerified());
         return pr;
+    }
+
+    @SuppressWarnings("unchecked")
+    private String fetchPatientName(int patientId) {
+        try {
+            String url = authServiceUrl + "/auth/internal/users/" + patientId;
+            Map<String, Object> userInfo = restTemplate.getForObject(url, Map.class);
+            if (userInfo != null && userInfo.get("fullName") != null) {
+                return (String) userInfo.get("fullName");
+            }
+        } catch (Exception e) {
+            System.err.println("Warning: Could not fetch patient name for id "
+                + patientId + ": " + e.getMessage());
+        }
+        return "Patient #" + patientId;
     }
 }

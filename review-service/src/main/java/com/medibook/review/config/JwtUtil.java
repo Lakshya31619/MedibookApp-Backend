@@ -30,7 +30,18 @@ public class JwtUtil {
     }
 
     public boolean validateToken(String token) {
-        try { parseClaims(token); return true; }
-        catch (Exception e) { return false; }
+        try {
+            if (token == null || token.isBlank()) {
+                return false;
+            }
+            parseClaims(token);
+            return true;
+        } catch (ExpiredJwtException e) {
+            return false;
+        } catch (JwtException e) {
+            return false;
+        } catch (Exception e) {
+            return false;
+        }
     }
 }

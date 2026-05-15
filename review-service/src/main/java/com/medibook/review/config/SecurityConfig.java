@@ -26,7 +26,6 @@ public class SecurityConfig {
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
 
-                // ✅ Swagger / OpenAPI — allow without auth
                 .requestMatchers(
                     "/v3/api-docs",
                     "/v3/api-docs/**",

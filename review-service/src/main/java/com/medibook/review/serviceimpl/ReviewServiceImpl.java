@@ -6,6 +6,7 @@ import com.medibook.review.repository.ReviewRepository;
 import com.medibook.review.service.ReviewService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
@@ -28,6 +29,10 @@ public class ReviewServiceImpl implements ReviewService {
 
     @Override
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "providerReviews", key = "#request.providerId"),
+        @CacheEvict(value = "ratingSummary",   key = "#request.providerId")
+    })
     public Review addReview(AddReviewRequest request) {
 
         if (reviewRepository.existsByAppointmentId(request.getAppointmentId())) {
@@ -51,12 +56,17 @@ public class ReviewServiceImpl implements ReviewService {
 
         Review saved = reviewRepository.save(review);
 
-        pushRatingToProviderService(request.getProviderId());
+        try {
+            pushRatingToProviderService(request.getProviderId());
+        } catch (Exception e) {
+            System.err.println("Warning: Could not push rating to provider-service: " + e.getMessage());
+        }
 
         return saved;
     }
 
     @Override
+    @Cacheable(value = "reviews", key = "#reviewId")
     public Review getReviewById(int reviewId) {
         return reviewRepository.findById(reviewId)
                 .orElseThrow(() -> new RuntimeException(
@@ -71,6 +81,7 @@ public class ReviewServiceImpl implements ReviewService {
     }
 
     @Override
+    @Cacheable(value = "providerReviews", key = "#providerId")
     public List<Review> getByProvider(int providerId) {
         return reviewRepository.findByProviderIdOrderByReviewDateDesc(providerId);
     }
@@ -92,6 +103,11 @@ public class ReviewServiceImpl implements ReviewService {
 
     @Override
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "reviews",         key = "#reviewId"),
+        @CacheEvict(value = "providerReviews", allEntries = true),
+        @CacheEvict(value = "ratingSummary",   allEntries = true)
+    })
     public Review updateReview(int reviewId, UpdateReviewRequest request) {
         Review review = getReviewById(reviewId);
 
@@ -112,13 +128,22 @@ public class ReviewServiceImpl implements ReviewService {
 
         Review updated = reviewRepository.save(review);
 
-        pushRatingToProviderService(review.getProviderId());
+        try {
+            pushRatingToProviderService(review.getProviderId());
+        } catch (Exception e) {
+            System.err.println("Warning: Could not push rating to provider-service: " + e.getMessage());
+        }
 
         return updated;
     }
 
     @Override
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "reviews",         key = "#reviewId"),
+        @CacheEvict(value = "providerReviews", allEntries = true),
+        @CacheEvict(value = "ratingSummary",   allEntries = true)
+    })
     public void deleteReview(int reviewId) {
         Review review = getReviewById(reviewId);
         int providerId = review.getProviderId();
@@ -130,6 +155,10 @@ public class ReviewServiceImpl implements ReviewService {
 
     @Override
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "reviews", key = "#reviewId"),
+        @CacheEvict(value = "providerReviews", allEntries = true)
+    })
     public void flagReview(int reviewId, String reason) {
         Review review = getReviewById(reviewId);
         review.setFlagged(true);
@@ -139,6 +168,10 @@ public class ReviewServiceImpl implements ReviewService {
 
     @Override
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "reviews", key = "#reviewId"),
+        @CacheEvict(value = "providerReviews", allEntries = true)
+    })
     public void unflagReview(int reviewId) {
         Review review = getReviewById(reviewId);
         review.setFlagged(false);
@@ -148,6 +181,10 @@ public class ReviewServiceImpl implements ReviewService {
 
     @Override
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "reviews", key = "#reviewId"),
+        @CacheEvict(value = "providerReviews", allEntries = true)
+    })
     public void verifyReview(int reviewId) {
         Review review = getReviewById(reviewId);
         review.setVerified(true);
@@ -166,6 +203,7 @@ public class ReviewServiceImpl implements ReviewService {
     }
 
     @Override
+    @Cacheable(value = "ratingSummary", key = "#providerId")
     public RatingSummary getRatingSummary(int providerId) {
         double avg   = reviewRepository.avgRatingByProviderId(providerId);
         int    total = reviewRepository.countByProviderId(providerId);
@@ -188,22 +226,19 @@ public class ReviewServiceImpl implements ReviewService {
     }
 
     private void pushRatingToProviderService(int providerId) {
-        try {
-            double newAvg = reviewRepository.avgRatingByProviderId(providerId);
-            double rounded = Math.round(newAvg * 100.0) / 100.0;
+        double newAvg = reviewRepository.avgRatingByProviderId(providerId);
+        double rounded = Math.round(newAvg * 100.0) / 100.0;
 
+        try {
             restTemplate.put(
                 providerServiceUrl + "/providers/" + providerId
                 + "/rating?value=" + rounded,
                 null
             );
-
-            System.out.println("Rating pushed to provider-service: provider="
-                + providerId + " avgRating=" + rounded);
-
+            System.out.println("Rating pushed to provider-service: provider=" + providerId + " avgRating=" + rounded);
         } catch (Exception e) {
-            System.err.println("Warning: Could not push rating to provider-service: "
-                + e.getMessage());
+            System.err.println("Failed to push rating to provider-service: " + e.getMessage());
+            throw new RuntimeException("Failed to update provider rating: " + e.getMessage(), e);
         }
     }
 }
