@@ -22,8 +22,8 @@ public interface SlotRepository extends JpaRepository<AvailabilitySlot, Integer>
     @Query("SELECT s FROM AvailabilitySlot s WHERE " +
            "s.providerId = :providerId AND " +
            "s.date = :date AND " +
-           "s.isBooked = false AND " +
-           "s.isBlocked = false " +
+           "s.booked = false AND " +
+           "s.blocked = false " +
            "ORDER BY s.startTime ASC")
     List<AvailabilitySlot> findAvailableByProviderAndDate(
             @Param("providerId") int providerId,
@@ -36,8 +36,8 @@ public interface SlotRepository extends JpaRepository<AvailabilitySlot, Integer>
 
     @Query("SELECT COUNT(s) FROM AvailabilitySlot s WHERE " +
            "s.providerId = :providerId AND " +
-           "s.isBooked = false AND " +
-           "s.isBlocked = false AND " +
+           "s.booked = false AND " +
+           "s.blocked = false AND " +
            "s.date >= CURRENT_DATE")
     int countAvailableByProviderId(@Param("providerId") int providerId);
 
@@ -47,13 +47,13 @@ public interface SlotRepository extends JpaRepository<AvailabilitySlot, Integer>
     @Transactional
     @Query("DELETE FROM AvailabilitySlot s WHERE " +
            "s.date < :today AND " +
-           "s.isBooked = false")
+           "s.booked = false")
     int deleteExpiredSlots(@Param("today") LocalDate today);
 
     @Query("SELECT s FROM AvailabilitySlot s WHERE " +
            "s.providerId = :providerId AND " +
-           "s.isBooked = false AND " +
-           "s.isBlocked = false AND " +
+           "s.booked = false AND " +
+           "s.blocked = false AND " +
            "s.date >= CURRENT_DATE " +
            "ORDER BY s.date ASC, s.startTime ASC")
     List<AvailabilitySlot> findFutureAvailableByProvider(

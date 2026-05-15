@@ -5,6 +5,7 @@ import com.medibook.schedule.entity.AvailabilitySlot;
 import com.medibook.schedule.repository.SlotRepository;
 import com.medibook.schedule.service.ScheduleService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +23,10 @@ public class ScheduleServiceImpl implements ScheduleService {
 
     @Override
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "slotsByProvider", key = "#request.providerId"),
+        @CacheEvict(value = "availableSlots",  allEntries = true)
+    })
     public AvailabilitySlot addSlot(AddSlotRequest request) {
 
         if (!request.getEndTime().isAfter(request.getStartTime())) {
@@ -54,6 +59,10 @@ public class ScheduleServiceImpl implements ScheduleService {
 
     @Override
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "slotsByProvider", key = "#request.providerId"),
+        @CacheEvict(value = "availableSlots",  allEntries = true)
+    })
     public BulkResult addBulkSlots(BulkSlotRequest request) {
         int created = 0;
         int skipped = 0;
@@ -86,6 +95,10 @@ public class ScheduleServiceImpl implements ScheduleService {
 
     @Override
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "slotsByProvider", key = "#request.providerId"),
+        @CacheEvict(value = "availableSlots",  allEntries = true)
+    })
     public BulkResult generateRecurringSlots(RecurringSlotRequest request) {
 
         if (request.getEndDate().isBefore(request.getStartDate())) {
@@ -103,6 +116,15 @@ public class ScheduleServiceImpl implements ScheduleService {
             }
         }
 
+        // WEEKDAYS preset: Monday–Friday
+        if ("WEEKDAYS".equalsIgnoreCase(request.getRecurrenceType())) {
+            targetDays.add(DayOfWeek.MONDAY);
+            targetDays.add(DayOfWeek.TUESDAY);
+            targetDays.add(DayOfWeek.WEDNESDAY);
+            targetDays.add(DayOfWeek.THURSDAY);
+            targetDays.add(DayOfWeek.FRIDAY);
+        }
+
         int created = 0;
         int skipped = 0;
         String recurrenceLabel = request.getRecurrenceType().toUpperCase();
@@ -114,6 +136,8 @@ public class ScheduleServiceImpl implements ScheduleService {
             if ("DAILY".equalsIgnoreCase(request.getRecurrenceType())) {
                 shouldGenerate = true;
             } else if ("WEEKLY".equalsIgnoreCase(request.getRecurrenceType())) {
+                shouldGenerate = targetDays.contains(current.getDayOfWeek());
+            } else if ("WEEKDAYS".equalsIgnoreCase(request.getRecurrenceType())) {
                 shouldGenerate = targetDays.contains(current.getDayOfWeek());
             }
 
@@ -154,11 +178,13 @@ public class ScheduleServiceImpl implements ScheduleService {
     }
 
     @Override
+    @Cacheable(value = "slotsByProvider", key = "#providerId")
     public List<AvailabilitySlot> getSlotsByProvider(int providerId) {
         return slotRepository.findByProviderId(providerId);
     }
 
     @Override
+    @Cacheable(value = "availableSlots", key = "#providerId + ':' + #date")
     public List<AvailabilitySlot> getAvailableSlots(int providerId, LocalDate date) {
         return slotRepository.findAvailableByProviderAndDate(providerId, date);
     }
@@ -171,6 +197,7 @@ public class ScheduleServiceImpl implements ScheduleService {
     }
 
     @Override
+    @Cacheable(value = "slots", key = "#slotId")
     public AvailabilitySlot getSlotById(int slotId) {
         return slotRepository.findBySlotId(slotId)
                 .orElseThrow(() -> new RuntimeException(
@@ -183,14 +210,23 @@ public class ScheduleServiceImpl implements ScheduleService {
     }
 
     @Override
+    @Cacheable(value = "availableSlots", key = "'future:' + #providerId")
     public List<AvailabilitySlot> getFutureAvailableSlots(int providerId) {
         return slotRepository.findFutureAvailableByProvider(providerId);
     }
 
     @Override
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "slots",           key = "#slotId"),
+        @CacheEvict(value = "availableSlots",  allEntries = true),
+        @CacheEvict(value = "slotsByProvider", allEntries = true)
+    })
     public void bookSlot(int slotId) {
-        AvailabilitySlot slot = getSlotById(slotId);
+        // FIX: fetch directly from DB (bypassing cache) before mutating, so we
+        // don't operate on a stale cached object that shows the slot as un-booked.
+        AvailabilitySlot slot = slotRepository.findBySlotId(slotId)
+                .orElseThrow(() -> new RuntimeException("Slot not found with id: " + slotId));
 
         if (slot.isBooked()) {
             throw new RuntimeException(
@@ -207,16 +243,28 @@ public class ScheduleServiceImpl implements ScheduleService {
 
     @Override
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "slots",           key = "#slotId"),
+        @CacheEvict(value = "availableSlots",  allEntries = true),
+        @CacheEvict(value = "slotsByProvider", allEntries = true)
+    })
     public void releaseSlot(int slotId) {
-        AvailabilitySlot slot = getSlotById(slotId);
+        AvailabilitySlot slot = slotRepository.findBySlotId(slotId)
+                .orElseThrow(() -> new RuntimeException("Slot not found with id: " + slotId));
         slot.setBooked(false);
         slotRepository.save(slot);
     }
 
     @Override
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "slots",           key = "#slotId"),
+        @CacheEvict(value = "availableSlots",  allEntries = true),
+        @CacheEvict(value = "slotsByProvider", allEntries = true)
+    })
     public void blockSlot(int slotId) {
-        AvailabilitySlot slot = getSlotById(slotId);
+        AvailabilitySlot slot = slotRepository.findBySlotId(slotId)
+                .orElseThrow(() -> new RuntimeException("Slot not found with id: " + slotId));
         if (slot.isBooked()) {
             throw new RuntimeException(
                 "Cannot block slot " + slotId + " — it is already booked.");
@@ -227,16 +275,28 @@ public class ScheduleServiceImpl implements ScheduleService {
 
     @Override
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "slots",           key = "#slotId"),
+        @CacheEvict(value = "availableSlots",  allEntries = true),
+        @CacheEvict(value = "slotsByProvider", allEntries = true)
+    })
     public void unblockSlot(int slotId) {
-        AvailabilitySlot slot = getSlotById(slotId);
+        AvailabilitySlot slot = slotRepository.findBySlotId(slotId)
+                .orElseThrow(() -> new RuntimeException("Slot not found with id: " + slotId));
         slot.setBlocked(false);
         slotRepository.save(slot);
     }
 
     @Override
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "slots",           key = "#slotId"),
+        @CacheEvict(value = "availableSlots",  allEntries = true),
+        @CacheEvict(value = "slotsByProvider", allEntries = true)
+    })
     public void deleteSlot(int slotId) {
-        AvailabilitySlot slot = getSlotById(slotId);
+        AvailabilitySlot slot = slotRepository.findBySlotId(slotId)
+                .orElseThrow(() -> new RuntimeException("Slot not found with id: " + slotId));
         if (slot.isBooked()) {
             throw new RuntimeException(
                 "Cannot delete slot " + slotId + " — it has an active booking.");
@@ -246,6 +306,11 @@ public class ScheduleServiceImpl implements ScheduleService {
 
     @Override
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "availableSlots",  allEntries = true),
+        @CacheEvict(value = "slotsByProvider", allEntries = true),
+        @CacheEvict(value = "slots",           allEntries = true)
+    })
     public int purgeExpiredSlots() {
         int deleted = slotRepository.deleteExpiredSlots(LocalDate.now());
         if (deleted > 0) {
