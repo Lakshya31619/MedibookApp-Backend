@@ -5,6 +5,8 @@ import com.medibook.provider.entity.Provider;
 import com.medibook.provider.repository.ProviderRepository;
 import com.medibook.provider.service.ProviderService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.*;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,6 +29,9 @@ public class ProviderServiceImpl implements ProviderService {
     @Value("${notification.service.url:http://localhost:8087}")
     private String notificationServiceUrl;
 
+    @Value("${app.admin.user-id:1}")
+    private int adminUserId;
+
     @Override
     @Transactional
     public Provider registerProvider(RegisterProviderRequest request) {
@@ -48,15 +53,15 @@ public class ProviderServiceImpl implements ProviderService {
         provider.setConsultationFee(request.getConsultationFee());
         provider.setProfilePicUrl(request.getProfilePicUrl());
 
-        provider.setVerified(false);
-        provider.setVerificationStatus("PENDING");
-        provider.setAvailable(true);
-        provider.setAvgRating(0.0);
+        Provider saved = providerRepository.save(provider);
 
-        return providerRepository.save(provider);
+        sendProviderEvent("PROVIDER_REGISTERED", saved.getUserId(), saved.getProviderName(), null);
+
+        return saved;
     }
 
     @Override
+    @Cacheable(value = "providers", key = "'id:' + #providerId")
     public Provider getProviderById(int providerId) {
         return providerRepository.findById(providerId)
                 .orElseThrow(() -> new RuntimeException(
@@ -64,6 +69,7 @@ public class ProviderServiceImpl implements ProviderService {
     }
 
     @Override
+    @Cacheable(value = "providers", key = "'userId:' + #userId")
     public Provider getProviderByUserId(int userId) {
         return providerRepository.findByUserId(userId)
                 .orElseThrow(() -> new RuntimeException(
@@ -71,13 +77,15 @@ public class ProviderServiceImpl implements ProviderService {
     }
 
     @Override
+    @Cacheable(value = "providerSearch", key = "'spec:' + #specialization")
     public List<Provider> getBySpecialization(String specialization) {
         return providerRepository
-                .findBySpecializationAndIsVerifiedAndIsAvailable(
+                .findBySpecializationAndVerifiedAndAvailable(
                     specialization, true, true);
     }
 
     @Override
+    @Cacheable(value = "providerSearch", key = "'search:' + #keyword")
     public List<Provider> searchProviders(String keyword) {
         return providerRepository.searchProviders(keyword)
                 .stream()
@@ -91,8 +99,9 @@ public class ProviderServiceImpl implements ProviderService {
     }
 
     @Override
+    @Cacheable(value = "providerSearch", key = "'verified'")
     public List<Provider> getVerifiedProviders() {
-        return providerRepository.findByIsVerifiedOrderByAvgRatingDesc(true);
+        return providerRepository.findByVerifiedOrderByAvgRatingDesc(true);
     }
 
     @Override
@@ -103,16 +112,17 @@ public class ProviderServiceImpl implements ProviderService {
     @Override
     public List<Provider> getByMinRating(double minRating) {
         return providerRepository
-                .findByAvgRatingGreaterThanEqualAndIsVerified(minRating, true);
+                .findByAvgRatingGreaterThanEqualAndVerified(minRating, true);
     }
 
     @Override
     public List<Provider> getByLocation(String location) {
         return providerRepository
-                .findByClinicAddressContainingIgnoreCaseAndIsVerified(location, true);
+                .findByClinicAddressContainingIgnoreCaseAndVerified(location, true);
     }
 
     @Override
+    @Cacheable(value = "providerStats", key = "'specCounts'")
     public List<SpecializationCount> getSpecializationCounts() {
         return providerRepository.countBySpecialization()
                 .stream()
@@ -130,14 +140,15 @@ public class ProviderServiceImpl implements ProviderService {
 
     @Override
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "providers", key = "'id:' + #providerId"),
+        @CacheEvict(value = "providerSearch", allEntries = true),
+        @CacheEvict(value = "providerStats", allEntries = true)
+    })
     public Provider updateProvider(int providerId, UpdateProviderRequest request) {
         Provider provider = getProviderById(providerId);
 
-        if ("REJECTED".equals(provider.getVerificationStatus())) {
-            throw new RuntimeException(
-                "Your profile has been rejected. Reason: " + provider.getRejectionReason() +
-                ". Please contact admin.");
-        }
+        boolean wasRejected = "REJECTED".equals(provider.getVerificationStatus());
 
         if (request.getSpecialization() != null && !request.getSpecialization().isBlank())
             provider.setSpecialization(request.getSpecialization());
@@ -156,16 +167,35 @@ public class ProviderServiceImpl implements ProviderService {
         if (request.getProfilePicUrl() != null)
             provider.setProfilePicUrl(request.getProfilePicUrl());
 
-        return providerRepository.save(provider);
+        if (wasRejected) {
+            provider.setVerificationStatus("PENDING");
+            provider.setRejectionReason(null);
+        }
+
+        Provider saved = providerRepository.save(provider);
+
+        if (wasRejected) {
+            sendProviderEvent("PROVIDER_REGISTERED", saved.getUserId(), saved.getProviderName(), null);
+        }
+
+        return saved;
     }
 
     @Override
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "providers", key = "'id:' + #providerId"),
+        @CacheEvict(value = "providerSearch", allEntries = true),
+        @CacheEvict(value = "providerStats", allEntries = true)
+    })
     public void verifyProvider(int providerId) {
         Provider provider = getProviderById(providerId);
         provider.setVerified(true);
         provider.setVerificationStatus("APPROVED");
         provider.setRejectionReason(null);
+        if (!provider.isAvailable()) {
+            provider.setAvailable(true);
+        }
         providerRepository.save(provider);
 
         sendProviderEvent(
@@ -178,6 +208,30 @@ public class ProviderServiceImpl implements ProviderService {
 
     @Override
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "providers", key = "'id:' + #providerId"),
+        @CacheEvict(value = "providerSearch", allEntries = true)
+    })
+    public void verifyProviderEmail(int providerId) {
+        Provider provider = getProviderById(providerId);
+        provider.setEmailVerified(true);
+        providerRepository.save(provider);
+
+        sendProviderEvent(
+            "PROVIDER_EMAIL_VERIFIED",
+            provider.getUserId(),
+            provider.getProviderName(),
+            null
+        );
+    }
+
+    @Override
+    @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "providers", key = "'id:' + #providerId"),
+        @CacheEvict(value = "providerSearch", allEntries = true),
+        @CacheEvict(value = "providerStats", allEntries = true)
+    })
     public void rejectProvider(int providerId, String reason) {
         Provider provider = getProviderById(providerId);
 
@@ -201,6 +255,11 @@ public class ProviderServiceImpl implements ProviderService {
 
     @Override
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "providers", key = "'id:' + #providerId"),
+        @CacheEvict(value = "providerSearch", allEntries = true),
+        @CacheEvict(value = "providerStats", allEntries = true)
+    })
     public void unverifyProvider(int providerId) {
         Provider provider = getProviderById(providerId);
         provider.setVerified(false);
@@ -225,8 +284,9 @@ public class ProviderServiceImpl implements ProviderService {
 
         if (!provider.isVerified()) {
             throw new RuntimeException(
-                "Only verified providers can change availability. " +
-                "Current status: " + provider.getVerificationStatus());
+                "Only providers approved by admin can change availability. " +
+                "Current verification status: " + provider.getVerificationStatus() +
+                ". Please wait for admin approval.");
         }
 
         provider.setAvailable(isAvailable);
@@ -235,6 +295,11 @@ public class ProviderServiceImpl implements ProviderService {
 
     @Override
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "providers", key = "'id:' + #providerId"),
+        @CacheEvict(value = "providerSearch", allEntries = true),
+        @CacheEvict(value = "providerStats", allEntries = true)
+    })
     public void updateRating(int providerId, double newRating) {
         Provider provider = getProviderById(providerId);
         double clamped = Math.max(0.0, Math.min(5.0, newRating));
@@ -250,6 +315,7 @@ public class ProviderServiceImpl implements ProviderService {
             payload.put("eventType",    eventType);
             payload.put("providerId",   recipientUserId);
             payload.put("providerName", providerName != null ? providerName : "Provider");
+            payload.put("adminId",      adminUserId);
             if (rejectionReason != null) payload.put("rejectionReason", rejectionReason);
 
             restTemplate.postForObject(

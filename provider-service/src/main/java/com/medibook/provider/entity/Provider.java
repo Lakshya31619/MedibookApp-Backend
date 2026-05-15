@@ -1,6 +1,7 @@
 package com.medibook.provider.entity;
 
 import jakarta.persistence.*;
+import java.io.Serializable;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
@@ -12,7 +13,9 @@ import java.time.LocalDate;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class Provider {
+public class Provider implements Serializable {
+
+    private static final long serialVersionUID = 1L;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -41,26 +44,29 @@ public class Provider {
 
     @Column
     private String clinicAddress;
+    
+    @Column(name = "avg_rating")
+    private double avgRating;
 
-    @Column
-    private double avgRating = 0.0;
+    @Column(name = "available")
+    private boolean available;
 
-    @Column(nullable = false)
-    private boolean isAvailable = true;
+    @Column(name = "verified")
+    private boolean verified;
 
-    @Column(nullable = false)
-    private boolean isVerified = false;
+    @Column(name = "email_verified")
+    private boolean emailVerified;
 
-    @Column(nullable = false)
-    private String verificationStatus = "PENDING";
+    @Column(name = "verification_status", length = 20)
+    private String verificationStatus;
 
     @Column
     private String rejectionReason;
 
-    @Column
-    private double consultationFee = 0.0;
+    @Column(name = "consultation_fee")
+    private double consultationFee;
 
-    @Column
+    @Column(name = "profile_pic_url")
     private String profilePicUrl;
 
     @Column(nullable = false, updatable = false)
@@ -69,5 +75,12 @@ public class Provider {
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDate.now();
+        this.available    = false;
+        this.verified     = false;
+        this.emailVerified = false;
+        this.avgRating    = 0.0;
+        if (this.verificationStatus == null) {
+            this.verificationStatus = "PENDING";
+        }
     }
 }

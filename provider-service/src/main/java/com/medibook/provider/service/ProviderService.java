@@ -27,6 +27,8 @@ public interface ProviderService {
 
     void verifyProvider(int providerId);
 
+    void verifyProviderEmail(int providerId);
+
     void rejectProvider(int providerId, String reason);
 
     void unverifyProvider(int providerId);

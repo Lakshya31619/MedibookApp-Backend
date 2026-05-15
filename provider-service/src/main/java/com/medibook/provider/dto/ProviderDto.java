@@ -60,7 +60,8 @@ public class ProviderDto {
         private String clinicAddress;
         private double avgRating;
         private boolean available;          
-        private boolean verified;           
+        private boolean verified;
+        private boolean emailVerified;
         private String verificationStatus;
         private String rejectionReason;
         private double consultationFee;

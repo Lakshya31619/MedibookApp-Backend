@@ -165,6 +165,21 @@ public class ProviderResource {
         }
     }
 
+    @PutMapping("/{id}/verify-email")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> verifyEmail(@PathVariable int id) {
+        try {
+            providerService.verifyProviderEmail(id);
+            return ResponseEntity.ok(Map.of(
+                "message", "Provider email verified. Awaiting admin approval.",
+                "providerId", id,
+                "emailVerified", true
+            ));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
     @PostMapping("/{id}/reject")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> reject(@PathVariable int id,
@@ -253,7 +268,8 @@ public class ProviderResource {
         r.setClinicAddress(p.getClinicAddress());
         r.setAvgRating(p.getAvgRating());
         r.setAvailable(p.isAvailable());   
-        r.setVerified(p.isVerified());    
+        r.setVerified(p.isVerified());
+        r.setEmailVerified(p.isEmailVerified());    
         r.setVerificationStatus(p.getVerificationStatus());
         r.setRejectionReason(p.getRejectionReason());
         r.setConsultationFee(p.getConsultationFee());
