@@ -67,10 +67,8 @@ public class AppointmentResource {
         try {
             String reason = (request != null) ? request.getReason() : "No reason provided";
             appointmentService.cancelAppointment(id, reason);
-            return ResponseEntity.ok(Map.of(
-                "message", "Appointment cancelled successfully",
-                "appointmentId", id
-            ));
+            Appointment updated = appointmentService.getById(id);
+            return ResponseEntity.ok(toResponse(updated));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
@@ -133,10 +131,8 @@ public class AppointmentResource {
     public ResponseEntity<?> complete(@PathVariable int id) {
         try {
             appointmentService.completeAppointment(id);
-            return ResponseEntity.ok(Map.of(
-                "message", "Appointment marked as completed",
-                "appointmentId", id
-            ));
+            Appointment updated = appointmentService.getById(id);
+            return ResponseEntity.ok(toResponse(updated));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
@@ -147,7 +143,8 @@ public class AppointmentResource {
     public ResponseEntity<?> noShow(@PathVariable int id) {
         try {
             appointmentService.markNoShow(id);
-            return ResponseEntity.ok(Map.of("message", "Appointment marked as no-show"));
+            Appointment updated = appointmentService.getById(id);
+            return ResponseEntity.ok(toResponse(updated));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }

@@ -227,6 +227,7 @@ public class AppointmentServiceImpl implements AppointmentService {
         count.setCompleted(appointmentRepository.countByProviderIdAndStatus(providerId, "COMPLETED"));
         count.setScheduled(appointmentRepository.countByProviderIdAndStatus(providerId, "SCHEDULED"));
         count.setCancelled(appointmentRepository.countByProviderIdAndStatus(providerId, "CANCELLED"));
+        count.setNoShow(appointmentRepository.countByProviderIdAndStatus(providerId, "NO_SHOW"));
         return count;
     }
 

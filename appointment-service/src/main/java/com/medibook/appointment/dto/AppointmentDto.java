@@ -78,5 +78,6 @@ public class AppointmentDto {
         private int completed;
         private int scheduled;
         private int cancelled;
+        private int noShow;
     }
 }
