@@ -11,13 +11,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
-/**
- * Razorpay-specific endpoints.
- *
- * POST /api/payments/razorpay/create-order  — create a Razorpay order before checkout
- * POST /api/payments/razorpay/verify        — verify signature & persist payment as PAID
- * POST /api/payments/razorpay/refund/{id}   — issue a real Razorpay refund
- */
 @RestController
 @RequestMapping("/payments/razorpay")
 public class RazorpayResource {
@@ -25,11 +18,6 @@ public class RazorpayResource {
     @Autowired
     private RazorpayService razorpayService;
 
-    /**
-     * Step 1 of online checkout.
-     * Creates a Razorpay order and returns the orderId + publishable key
-     * the frontend needs to open the checkout popup.
-     */
     @PostMapping("/create-order")
     public ResponseEntity<?> createOrder(@Valid @RequestBody RazorpayOrderRequest request) {
         try {
@@ -40,18 +28,12 @@ public class RazorpayResource {
         }
     }
 
-    /**
-     * Step 2 of online checkout — called after the user completes payment in the popup.
-     * Verifies the Razorpay signature (HMAC-SHA256) and saves the payment as PAID.
-     * Returns 400 if the signature is invalid.
-     */
     @PostMapping("/verify")
     public ResponseEntity<?> verifyAndCapture(@Valid @RequestBody RazorpayVerifyRequest request) {
         try {
             Payment payment = razorpayService.verifyAndCapture(request);
             return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(payment));
         } catch (RuntimeException e) {
-            // Distinguish fraud/signature failure from other errors
             String msg = e.getMessage();
             if (msg != null && msg.contains("signature verification failed")) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN)
@@ -61,9 +43,6 @@ public class RazorpayResource {
         }
     }
 
-    /**
-     * Issues a real refund via Razorpay for the payment linked to the given appointmentId.
-     */
     @PostMapping("/refund/{appointmentId}")
     public ResponseEntity<?> refund(
             @PathVariable int appointmentId,
@@ -83,8 +62,6 @@ public class RazorpayResource {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
-
-    // ─── Mapper ─────────────────────────────────────────────────────────────
 
     private PaymentResponse toResponse(Payment p) {
         PaymentResponse r = new PaymentResponse();
