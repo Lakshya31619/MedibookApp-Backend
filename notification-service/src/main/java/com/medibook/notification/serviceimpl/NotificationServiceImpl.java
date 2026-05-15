@@ -14,7 +14,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -295,6 +294,15 @@ public class NotificationServiceImpl implements NotificationService {
 
         switch (type) {
 
+            case NotificationType.PROVIDER_REGISTERED -> {
+                int adminRecipient = (event.getAdminId() != null) ? event.getAdminId() : 1;
+                sendAppNotification(adminRecipient, NotificationType.PROVIDER_REGISTERED,
+                    "New Provider Registration 🏥",
+                    "A new provider " + orUnknown(event.getProviderName()) +
+                    " has submitted their profile for verification. Please review and approve.",
+                    event.getProviderId(), "PROVIDER");
+            }
+
             case NotificationType.PROVIDER_APPROVED -> {
                 sendAppNotification(event.getProviderId(), NotificationType.PROVIDER_APPROVED,
                     "Profile Approved 🎉",
@@ -454,6 +462,7 @@ public class NotificationServiceImpl implements NotificationService {
             case NotificationType.PAYMENT_REFUNDED          -> "Refund Initiated 💰";
             case NotificationType.ADMIN_PAYMENT_RECEIVED    -> "New Payment Received 💰";
             case NotificationType.ADMIN_PAYMENT_REFUNDED    -> "Refund Issued 🔄";
+            case NotificationType.PROVIDER_REGISTERED         -> "New Provider Registration 🏥";
             case NotificationType.PROVIDER_APPROVED         -> "Profile Approved 🎉";
             case NotificationType.PROVIDER_REJECTED         -> "Profile Needs Attention ⚠️";
             case NotificationType.REVIEW_RECEIVED           -> "New Review ⭐";
