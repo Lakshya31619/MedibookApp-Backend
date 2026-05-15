@@ -2,6 +2,7 @@ package com.medibook.auth.config;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -9,6 +10,7 @@ import javax.crypto.SecretKey;
 import java.util.Date;
 
 @Component
+@Slf4j
 public class JwtUtil {
 
     @Value("${app.jwt.secret}")
@@ -36,7 +38,16 @@ public class JwtUtil {
     }
 
     public int getUserIdFromToken(String token) {
-        return ((Number) parseClaims(token).get("userId")).intValue();
+        try {
+            Object userId = parseClaims(token).get("userId");
+            if (userId instanceof Number) {
+                return ((Number) userId).intValue();
+            }
+            throw new RuntimeException("Invalid userId format in token");
+        } catch (Exception e) {
+            log.error("Error extracting userId from token: {}", e.getMessage());
+            throw new RuntimeException("Failed to extract userId from token", e);
+        }
     }
 
     private Claims parseClaims(String token) {
@@ -57,18 +68,27 @@ public class JwtUtil {
 
     public boolean validateToken(String token) {
         try {
+            if (token == null || token.isBlank()) {
+                return false;
+            }
             parseClaims(token);
             return true;
         } catch (ExpiredJwtException e) {
-            System.out.println("JWT expired: " + e.getMessage());
+            log.debug("JWT expired: {}", e.getMessage());
+            return false;
         } catch (MalformedJwtException e) {
-            System.out.println("JWT malformed: " + e.getMessage());
+            log.debug("JWT malformed: {}", e.getMessage());
+            return false;
         } catch (SecurityException e) {
-            System.out.println("JWT signature invalid: " + e.getMessage());
+            log.debug("JWT signature invalid: {}", e.getMessage());
+            return false;
         } catch (IllegalArgumentException e) {
-            System.out.println("JWT is empty: " + e.getMessage());
+            log.debug("JWT is empty: {}", e.getMessage());
+            return false;
+        } catch (Exception e) {
+            log.debug("Token validation error: {}", e.getMessage());
+            return false;
         }
-        return false;
     }
 
     public long getExpirationMs() {

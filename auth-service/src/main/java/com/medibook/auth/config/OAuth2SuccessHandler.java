@@ -49,8 +49,18 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
             newUser.setProvider(providerName);
             newUser.setProfilePicUrl(picture);
             newUser.setActive(true);
+            newUser.setEmailVerified(true);
             return userRepository.save(newUser);
         });
+
+        if (!user.isEmailVerified() || !user.isActive()) {
+            user.setEmailVerified(true);
+            user.setActive(true);
+            if (user.getProvider() == null) {
+                user.setProvider(providerName);
+            }
+            userRepository.save(user);
+        }
 
         String token = jwtUtil.generateToken(user.getEmail(), user.getRole(), user.getUserId());
 

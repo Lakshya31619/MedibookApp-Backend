@@ -20,14 +20,22 @@ public class AuthResource {
 
     @Autowired
     private AuthService authService;
-    
+
     @PostMapping("/register")
     public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest request) {
         try {
             User user = authService.register(request);
+
+            try {
+                authService.sendVerificationCode(user.getEmail());
+            } catch (Exception mailEx) {
+                System.err.println("Warning: could not send verification email to "
+                        + user.getEmail() + ": " + mailEx.getMessage());
+            }
+
             return ResponseEntity.status(HttpStatus.CREATED)
                     .body(Map.of(
-                        "message", "Registration successful",
+                        "message", "Registration successful. Please check your email for the verification code.",
                         "userId", user.getUserId(),
                         "email", user.getEmail(),
                         "role", user.getRole()
@@ -38,12 +46,45 @@ public class AuthResource {
         }
     }
 
+    @PostMapping("/send-verification")
+    public ResponseEntity<?> sendVerification(@RequestBody Map<String, String> body) {
+        try {
+            String email = body.get("email");
+            if (email == null || email.isBlank()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Email is required"));
+            }
+            authService.sendVerificationCode(email);
+            return ResponseEntity.ok(Map.of("message", "Verification code sent to " + email));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/verify-email")
+    public ResponseEntity<?> verifyEmail(@RequestBody Map<String, String> body) {
+        try {
+            String email = body.get("email");
+            String code  = body.get("code");
+            if (email == null || code == null) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Email and code are required"));
+            }
+            authService.verifyEmail(email, code);
+            return ResponseEntity.ok(Map.of("message", "Email verified successfully! You can now log in."));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
     @PostMapping("/login")
     public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request) {
         try {
             AuthResponse response = authService.login(request.getEmail(), request.getPassword());
             return ResponseEntity.ok(response);
         } catch (RuntimeException e) {
+            if ("EMAIL_NOT_VERIFIED".equals(e.getMessage())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(Map.of("error", "EMAIL_NOT_VERIFIED", "email", request.getEmail()));
+            }
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("error", e.getMessage()));
         }
@@ -70,19 +111,40 @@ public class AuthResource {
 
     @GetMapping("/profile/{userId}")
     public ResponseEntity<?> getProfile(@PathVariable int userId, Principal principal) {
+        if (principal == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Authentication required"));
+        }
         try {
             User user = authService.getUserById(userId);
 
-            User requester = authService.getUserByEmail(principal.getName());
+            User requester;
+            try {
+                requester = authService.getUserByEmail(principal.getName());
+            } catch (Exception e) {
+                System.err.println("[AuthResource] Failed to load requester for principal '"
+                        + principal.getName() + "': " + e.getMessage());
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body(Map.of("error", "Could not verify requester identity"));
+            }
+
             if (requester.getUserId() != userId && !requester.getRole().equals("ADMIN")) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN)
                         .body(Map.of("error", "Access denied"));
             }
 
             return ResponseEntity.ok(mapToResponse(user));
+
         } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("error", e.getMessage()));
+            String msg = e.getMessage() != null ? e.getMessage() : "User not found";
+            if (msg.toLowerCase().contains("not found")) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(Map.of("error", msg));
+            }
+            System.err.println("[AuthResource] Unexpected error fetching profile for userId=" + userId
+                    + ": " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Internal error retrieving profile"));
         }
     }
 
@@ -91,6 +153,9 @@ public class AuthResource {
                                            @RequestBody UpdateProfileRequest request,
                                            Principal principal) {
         try {
+            System.out.println("[AuthResource] PUT /profile/" + userId);
+            System.out.println("[AuthResource] Request body - fullName: '" + request.getFullName() + "', phone: '" + request.getPhone() + "', profilePicUrl: '" + request.getProfilePicUrl() + "'");
+            
             User requester = authService.getUserByEmail(principal.getName());
             if (requester.getUserId() != userId && !requester.getRole().equals("ADMIN")) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN)
@@ -98,11 +163,16 @@ public class AuthResource {
             }
 
             User updated = authService.updateProfile(userId, request);
-            return ResponseEntity.ok(Map.of(
+            System.out.println("[AuthResource] Updated user fullName in response: '" + updated.getFullName() + "'");
+            
+            Map<String, Object> response = Map.of(
                 "message", "Profile updated",
                 "user", mapToResponse(updated)
-            ));
+            );
+            System.out.println("[AuthResource] Sending response with user: " + response.get("user"));
+            return ResponseEntity.ok(response);
         } catch (RuntimeException e) {
+            System.err.println("[AuthResource] Error updating profile: " + e.getMessage());
             return ResponseEntity.badRequest()
                     .body(Map.of("error", e.getMessage()));
         }
