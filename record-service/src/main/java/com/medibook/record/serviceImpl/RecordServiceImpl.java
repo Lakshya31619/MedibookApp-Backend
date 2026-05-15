@@ -23,7 +23,7 @@ public class RecordServiceImpl implements RecordService {
     @Autowired
     private RecordRepository recordRepository;
 
-    @Autowired
+    @Autowired(required = false)
     private RestTemplate restTemplate;
 
     @Value("${notification.service.url}")
@@ -198,6 +198,10 @@ public class RecordServiceImpl implements RecordService {
     }
 
     private void sendRecordCreatedNotification(MedicalRecord record) {
+        if (restTemplate == null) {
+            System.out.println("[NOTIFICATION SKIPPED] restTemplate not available");
+            return;
+        }
         try {
             Map<String, Object> payload = new HashMap<>();
             payload.put("recipientId",  record.getPatientId());
@@ -210,7 +214,7 @@ public class RecordServiceImpl implements RecordService {
             payload.put("relatedType",  "APPOINTMENT");
 
             restTemplate.postForObject(
-                notificationServiceUrl + "/notifications/events/appointment",
+                notificationServiceUrl + "/notifications/send",
                 payload,
                 Map.class
             );
@@ -221,6 +225,10 @@ public class RecordServiceImpl implements RecordService {
     }
 
     private void sendFollowUpNotification(MedicalRecord record) {
+        if (restTemplate == null) {
+            System.out.println("[NOTIFICATION SKIPPED] restTemplate not available for follow-up");
+            return;
+        }
         Map<String, Object> payload = new HashMap<>();
         payload.put("recipientId",  record.getPatientId());
         payload.put("type",         "APPOINTMENT_REMINDER");
@@ -233,7 +241,7 @@ public class RecordServiceImpl implements RecordService {
         payload.put("appointmentDate", record.getFollowUpDate().toString());
 
         restTemplate.postForObject(
-            notificationServiceUrl + "/notifications/events/appointment",
+            notificationServiceUrl + "/notifications/send",
             payload,
             Map.class
         );

@@ -3,7 +3,6 @@ package com.medibook.record.service;
 import com.medibook.record.dto.RecordDto.*;
 import com.medibook.record.entity.MedicalRecord;
 
-import java.time.LocalDate;
 import java.util.List;
 
 public interface RecordService {
