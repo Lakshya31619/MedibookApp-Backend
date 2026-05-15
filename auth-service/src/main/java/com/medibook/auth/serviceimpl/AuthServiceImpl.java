@@ -56,14 +56,12 @@ public class AuthServiceImpl implements AuthService {
         Optional<User> existing = userRepository.findByEmail(request.getEmail());
         if (existing.isPresent()) {
             User existingUser = existing.get();
-            // If already verified — block re-registration
             if (existingUser.isEmailVerified()) {
                 throw new RuntimeException("Email is already registered: " + request.getEmail());
             }
-            // If NOT verified — delete old unverified user + any pending code and allow fresh signup
             verificationRepository.deleteByEmail(request.getEmail());
             userRepository.delete(existingUser);
-            userRepository.flush(); // ensure delete is flushed before re-insert
+            userRepository.flush();
         }
 
         String hashedPassword = passwordEncoder.encode(request.getPassword());
@@ -141,7 +139,6 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    @Cacheable(value = "users", key = "'id:' + #userId")
     public User getUserById(int userId) {
         return userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found with id: " + userId));
@@ -159,17 +156,27 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found with id: " + userId));
 
+        System.out.println("[AuthService] Updating profile for userId=" + userId);
+        System.out.println("[AuthService] Request fullName: '" + request.getFullName() + "'");
+        System.out.println("[AuthService] Request phone: '" + request.getPhone() + "'");
+        System.out.println("[AuthService] Request profilePicUrl: '" + request.getProfilePicUrl() + "'");
+
         if (request.getFullName() != null && !request.getFullName().isBlank()) {
+            System.out.println("[AuthService] Setting fullName to: '" + request.getFullName() + "'");
             user.setFullName(request.getFullName());
         }
         if (request.getPhone() != null) {
-            user.setPhone(request.getPhone());
+            user.setPhone(request.getPhone().isBlank() ? null : request.getPhone());
+            System.out.println("[AuthService] Set phone to: '" + user.getPhone() + "'");
         }
         if (request.getProfilePicUrl() != null) {
-            user.setProfilePicUrl(request.getProfilePicUrl());
+            user.setProfilePicUrl(request.getProfilePicUrl().isBlank() ? null : request.getProfilePicUrl());
+            System.out.println("[AuthService] Set profilePicUrl to: '" + user.getProfilePicUrl() + "'");
         }
 
-        return userRepository.save(user);
+        User updated = userRepository.save(user);
+        System.out.println("[AuthService] Profile updated. New fullName in DB: '" + updated.getFullName() + "'");
+        return updated;
     }
 
     @Override

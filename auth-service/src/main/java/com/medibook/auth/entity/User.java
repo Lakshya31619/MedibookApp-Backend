@@ -42,9 +42,6 @@ public class User implements Serializable {
     @Column
     private String provider;
 
-    // FIX: added columnDefinition so the DB column carries a DEFAULT 0.
-    // Without it, MySQL strict mode rejects an INSERT that omits the column
-    // (e.g. OAuth2 user creation before the field is explicitly set).
     @Column(nullable = false, columnDefinition = "TINYINT(1) DEFAULT 0")
     private boolean active = false;
 

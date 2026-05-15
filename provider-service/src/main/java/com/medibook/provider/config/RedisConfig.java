@@ -17,20 +17,6 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * Redis configuration for the provider-service.
- *
- * Cache namespaces:
- *   - providers          : Individual provider objects       (TTL 15 min)
- *   - providerSearch     : Search/filter result lists        (TTL 5  min)
- *   - providerStats      : Aggregates like specialization counts (TTL 10 min)
- *
- * FIX: Implements CachingConfigurer to supply a no-op CacheErrorHandler.
- * Without this, a Redis connection failure inside @Cacheable methods
- * (e.g. getSpecializationCounts) throws a RuntimeException which the
- * GlobalExceptionHandler maps to 400 Bad Request, masking the real error.
- * With this handler the service silently falls through to the database.
- */
 @Configuration
 @EnableCaching
 public class RedisConfig implements CachingConfigurer {
@@ -72,10 +58,6 @@ public class RedisConfig implements CachingConfigurer {
                 .build();
     }
 
-    /**
-     * FIX: Lenient error handler — logs and swallows Redis errors so that
-     * cache failures never propagate as exceptions into controller/handler code.
-     */
     @Override
     public CacheErrorHandler errorHandler() {
         return new CacheErrorHandler() {

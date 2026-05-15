@@ -37,11 +37,11 @@ public class JwtUtil {
             parseClaims(token);
             return true;
         } catch (ExpiredJwtException e) {
-            return false; // Token expired
+            return false;
         } catch (JwtException e) {
-            return false; // Invalid token
+            return false;
         } catch (Exception e) {
-            return false; // Other parsing errors
+            return false;
         }
     }
 }

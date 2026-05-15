@@ -45,6 +45,8 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
             "/v3/api-docs",
             "/webjars",
 
+            "/api/providers",
+
             "/api/providers/search",
             "/api/providers/specialization",
             "/api/providers/location",
@@ -63,7 +65,6 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
         ServerHttpRequest request = exchange.getRequest();
         String path = request.getURI().getPath();
 
-        // Always let CORS preflight through
         if (request.getMethod() == HttpMethod.OPTIONS) {
             return chain.filter(exchange);
         }
@@ -100,8 +101,6 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
         return chain.filter(exchange.mutate().request(mutatedRequest).build());
     }
 
-    // FIX: write a JSON body with Content-Type and Content-Length so WebFlux/Netty
-    // commits the response properly and doesn't fall through to the 404 error handler.
     private Mono<Void> unauthorizedResponse(ServerWebExchange exchange, String message) {
         ServerHttpResponse response = exchange.getResponse();
         response.setStatusCode(HttpStatus.UNAUTHORIZED);

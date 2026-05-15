@@ -42,10 +42,6 @@ public class AvailabilitySlot implements Serializable {
     @Column(nullable = false)
     private int durationMinutes;
 
-    // FIX: renamed from isBooked -> booked (and isBlocked -> blocked).
-    // Lombok @Data on a field named "isBooked" generates getter isBooked() + setter setBooked(),
-    // which breaks Jackson serialization (it sees two "booked" properties) and causes
-    // JPA column-mapping issues with some Hibernate versions.
     @Column(nullable = false)
     private boolean booked = false;
 

@@ -7,6 +7,8 @@ import org.springframework.http.HttpRequest;
 import org.springframework.http.client.ClientHttpRequestExecution;
 import org.springframework.http.client.ClientHttpRequestInterceptor;
 import org.springframework.http.client.ClientHttpResponse;
+import org.springframework.http.client.BufferingClientHttpRequestFactory;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
@@ -19,7 +21,12 @@ public class RestTemplateConfig {
 
     @Bean
     public RestTemplate restTemplate() {
-        RestTemplate restTemplate = new RestTemplate();
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(5000);  
+        factory.setReadTimeout(5000); 
+        
+        RestTemplate restTemplate = new RestTemplate(
+            new BufferingClientHttpRequestFactory(factory));
         restTemplate.setInterceptors(List.of(new JwtForwardingInterceptor()));
         return restTemplate;
     }

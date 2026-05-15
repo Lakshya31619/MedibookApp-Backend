@@ -55,3 +55,6 @@ mvn spring-boot:run
 
 cd api-gateway
 mvn spring-boot:run
+
+//Sonarqube//
+mvn clean verify sonar:sonar 

@@ -61,8 +61,6 @@ public class SecurityConfig {
                 .anyRequest().authenticated()
             )
 
-            // Return 401 JSON for unauthenticated API requests instead of
-            // redirecting to Google OAuth (which causes the CORS loop)
             .exceptionHandling(ex -> ex
                 .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
             )

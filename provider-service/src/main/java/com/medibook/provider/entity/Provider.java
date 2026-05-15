@@ -44,12 +44,7 @@ public class Provider implements Serializable {
 
     @Column
     private String clinicAddress;
-
-    // FIX: removed columnDefinition — Hibernate was treating the DB-level
-    // DEFAULT as the source of truth and OMITTING this column from the INSERT
-    // entirely. Since ddl-auto=update never re-adds a DEFAULT to an existing
-    // column, MySQL rejected the INSERT with "Field doesn't have a default value".
-    // Plain @Column forces Hibernate to always include it in every INSERT.
+    
     @Column(name = "avg_rating")
     private double avgRating;
 
@@ -80,10 +75,6 @@ public class Provider implements Serializable {
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDate.now();
-        // Always set every non-null field explicitly so Hibernate
-        // includes them in the INSERT with the correct value —
-        // never relying on a DB-level DEFAULT that may not exist.
-        // Provider starts as NOT available until email + admin verification
         this.available    = false;
         this.verified     = false;
         this.emailVerified = false;

@@ -15,17 +15,6 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * Redis configuration for the schedule-service.
- *
- * Cache namespaces:
- *   - slots            : Individual slot lookups            (TTL 5 min)
- *   - availableSlots   : Available slot lists per provider  (TTL 2 min — time-sensitive)
- *   - slotsByProvider  : All slots for a provider           (TTL 5 min)
- *
- * Fault-tolerant: if Redis is unreachable at startup, falls back to a no-op
- * cache manager so all requests still hit MySQL without error.
- */
 @Configuration
 @EnableCaching
 public class RedisConfig {
@@ -49,7 +38,6 @@ public class RedisConfig {
     @Bean
     public CacheManager cacheManager(RedisConnectionFactory factory) {
         try {
-            // Probe the connection — throws immediately if Redis is down
             factory.getConnection().ping();
 
             RedisCacheConfiguration defaultConfig = RedisCacheConfiguration.defaultCacheConfig()

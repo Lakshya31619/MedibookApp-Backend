@@ -14,14 +14,6 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * Redis configuration for the review-service.
- *
- * Cache namespaces:
- *   - reviews          : Individual review objects           (TTL 10 min)
- *   - providerReviews  : All reviews for a given provider   (TTL 5  min)
- *   - ratingSummary    : Rating aggregates per provider     (TTL 5  min)
- */
 @Configuration
 @EnableCaching
 public class RedisConfig {

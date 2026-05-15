@@ -11,11 +11,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * DataInitializer — Creates the default admin user on startup if it doesn't
- * exist, and resets the AUTO_INCREMENT counter on the users table so that IDs
- * restart from (max_existing_id + 1) after manual row deletions.
- */
 @Component
 @Slf4j
 public class DataInitializer implements CommandLineRunner {
@@ -33,11 +28,10 @@ public class DataInitializer implements CommandLineRunner {
     @Transactional
     public void run(String... args) {
         try {
-            Thread.sleep(1000); // Wait for JPA initialization
+            Thread.sleep(1000);
 
             log.info("🔧 Initializing admin user...");
 
-            // Check if admin user already exists
             var adminOpt = userRepository.findByEmail("admin@medibook.com");
 
             if (adminOpt.isEmpty()) {
@@ -61,14 +55,6 @@ public class DataInitializer implements CommandLineRunner {
                 log.info("✅ Admin user already exists, skipping initialization");
             }
 
-            // ---------------------------------------------------------------
-            // AUTO_INCREMENT reset
-            // MySQL keeps AUTO_INCREMENT at the historical high-water mark even
-            // after rows are deleted.  Running ALTER TABLE … AUTO_INCREMENT = 1
-            // tells MySQL to recalculate and set it to (MAX(userId) + 1), so
-            // the next inserted user gets a compact ID instead of continuing
-            // from the old maximum.
-            // ---------------------------------------------------------------
             log.info("🔄 Resetting AUTO_INCREMENT on users table...");
             entityManager.createNativeQuery(
                 "ALTER TABLE users AUTO_INCREMENT = 1"
@@ -80,7 +66,6 @@ public class DataInitializer implements CommandLineRunner {
             Thread.currentThread().interrupt();
         } catch (Exception e) {
             log.error("❌ Error during data initialization: {}", e.getMessage(), e);
-            // Don't throw — let the application continue even if initialization fails
         }
     }
 }

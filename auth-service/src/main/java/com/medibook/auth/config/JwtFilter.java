@@ -48,7 +48,6 @@ public class JwtFilter extends OncePerRequestFilter {
             String email = jwtUtil.getEmailFromToken(token);
             String role  = jwtUtil.getRoleFromToken(token);
 
-            // Validate that both email and role are present
             if (email == null || email.isBlank() || role == null || role.isBlank()) {
                 filterChain.doFilter(request, response);
                 return;
@@ -68,8 +67,6 @@ public class JwtFilter extends OncePerRequestFilter {
             );
             SecurityContextHolder.getContext().setAuthentication(authentication);
         } catch (Exception e) {
-            // Log and continue without authentication on any token parsing error
-            // This is safer than failing the entire request
         }
         
         filterChain.doFilter(request, response);

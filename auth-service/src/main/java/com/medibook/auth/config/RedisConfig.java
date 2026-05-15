@@ -17,19 +17,6 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * Redis configuration for the auth-service.
- *
- * Cache namespaces:
- *   - users           : User objects by email / userId  (TTL 30 min)
- *   - tokenValidation : JWT validation results           (TTL 10 min)
- *   - verificationCodes: email OTP codes                (TTL 10 min)
- *
- * FIX: Implements CachingConfigurer to supply a no-op CacheErrorHandler.
- * This prevents Redis connection errors (e.g. Redis not running in dev)
- * from propagating as RuntimeExceptions and causing misleading 404/400
- * responses. On a cache miss/error the service falls back to the database.
- */
 @Configuration
 @EnableCaching
 public class RedisConfig implements CachingConfigurer {
@@ -71,12 +58,6 @@ public class RedisConfig implements CachingConfigurer {
                 .build();
     }
 
-    /**
-     * FIX: Return a lenient CacheErrorHandler that logs and swallows all Redis
-     * errors instead of rethrowing them.  Without this, a Redis connection
-     * failure on @Cacheable methods throws a RuntimeException which the
-     * GlobalExceptionHandler (or the getProfile try/catch) maps to 400 or 404.
-     */
     @Override
     public CacheErrorHandler errorHandler() {
         return new CacheErrorHandler() {

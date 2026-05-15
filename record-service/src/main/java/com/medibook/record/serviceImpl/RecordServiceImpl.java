@@ -23,7 +23,6 @@ public class RecordServiceImpl implements RecordService {
     @Autowired
     private RecordRepository recordRepository;
 
-    // FIX: required=false so the service starts even if no RestTemplate bean is present
     @Autowired(required = false)
     private RestTemplate restTemplate;
 
@@ -199,7 +198,6 @@ public class RecordServiceImpl implements RecordService {
     }
 
     private void sendRecordCreatedNotification(MedicalRecord record) {
-        // FIX: guard against null restTemplate (bean may not be configured)
         if (restTemplate == null) {
             System.out.println("[NOTIFICATION SKIPPED] restTemplate not available");
             return;
@@ -227,7 +225,6 @@ public class RecordServiceImpl implements RecordService {
     }
 
     private void sendFollowUpNotification(MedicalRecord record) {
-        // FIX: guard against null restTemplate
         if (restTemplate == null) {
             System.out.println("[NOTIFICATION SKIPPED] restTemplate not available for follow-up");
             return;

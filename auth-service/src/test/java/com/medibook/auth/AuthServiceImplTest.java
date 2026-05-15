@@ -120,8 +120,7 @@ class AuthServiceImplTest {
         req.setPassword("pass1234");
         req.setRole("ADMIN"); // not allowed via registration
 
-        when(userRepository.findByEmail(any())).thenReturn(Optional.empty());
-
+        // No stub needed — role check throws before any repository call
         assertThrows(RuntimeException.class, () -> authService.register(req));
     }
 

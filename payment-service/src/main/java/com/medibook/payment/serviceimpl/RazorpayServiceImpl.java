@@ -33,13 +33,10 @@ public class RazorpayServiceImpl implements RazorpayService {
     @Autowired
     private PaymentRepository paymentRepository;
 
-    // ─── Create Order ────────────────────────────────────────────────────────
-
     @Override
     @Transactional
     public RazorpayOrderResponse createOrder(RazorpayOrderRequest request) {
         try {
-            // Razorpay expects amount in paise (1 INR = 100 paise)
             long amountPaise = Math.round(request.getAmount() * 100);
 
             JSONObject orderRequest = new JSONObject();
@@ -59,9 +56,6 @@ public class RazorpayServiceImpl implements RazorpayService {
             Order order = razorpayClient.orders.create(orderRequest);
             String orderId = order.get("id");
 
-            // Persist a PENDING payment record immediately so the patient sees
-            // "payment pending" on their dashboard if they close the checkout popup.
-            // If a record already exists (retry flow), only update it when still PENDING.
             Payment pending = paymentRepository
                 .findByAppointmentId(request.getAppointmentId())
                 .orElseGet(() -> {
@@ -70,13 +64,12 @@ public class RazorpayServiceImpl implements RazorpayService {
                     p.setPatientId(request.getPatientId());
                     p.setProviderId(request.getProviderId());
                     p.setAmount(request.getAmount());
-                    p.setMode("UPI"); // overwritten to the actual mode on verify
+                    p.setMode("UPI");
                     p.setCurrency("INR");
                     p.setStatus("PENDING");
                     return p;
                 });
 
-            // Don't downgrade an already-completed payment
             if (!"PAID".equals(pending.getStatus()) && !"REFUNDED".equals(pending.getStatus())) {
                 pending.setStatus("PENDING");
                 pending.setNotes("rzp_order=" + orderId
@@ -96,13 +89,10 @@ public class RazorpayServiceImpl implements RazorpayService {
         }
     }
 
-    // ─── Verify Signature & Capture ─────────────────────────────────────────
-
     @Override
     @Transactional
     public Payment verifyAndCapture(RazorpayVerifyRequest request) {
 
-        // 1. Verify HMAC-SHA256 signature — critical security check.
         if (!isSignatureValid(
                 request.getRazorpayOrderId(),
                 request.getRazorpayPaymentId(),
@@ -111,12 +101,9 @@ public class RazorpayServiceImpl implements RazorpayService {
                 "Payment signature verification failed — possible fraud attempt.");
         }
 
-        // 2. Find existing PENDING record (created in createOrder) OR guard against
-        //    duplicate PAID records for the same appointment.
         Payment payment = paymentRepository
             .findByAppointmentId(request.getAppointmentId())
             .orElseGet(() -> {
-                // Fallback: no pending record found (legacy / race condition) — create fresh
                 Payment p = new Payment();
                 p.setAppointmentId(request.getAppointmentId());
                 p.setPatientId(request.getPatientId());
@@ -126,19 +113,16 @@ public class RazorpayServiceImpl implements RazorpayService {
                 return p;
             });
 
-        // Don't re-process an already paid appointment
         if ("PAID".equals(payment.getStatus())) {
             return payment;
         }
 
-        // 3. Validate mode
         String mode = request.getMode().toUpperCase();
         if (!List.of("CARD", "UPI", "WALLET").contains(mode)) {
             throw new RuntimeException(
                 "Invalid payment mode for Razorpay. Must be CARD, UPI or WALLET.");
         }
 
-        // 4. Update record to PAID
         payment.setMode(mode);
         payment.setStatus("PAID");
         payment.setTransactionId(request.getRazorpayPaymentId());
@@ -150,8 +134,6 @@ public class RazorpayServiceImpl implements RazorpayService {
         return paymentRepository.save(payment);
     }
 
-    // ─── Real Razorpay Refund ────────────────────────────────────────────────
-
     @Override
     @Transactional
     public Payment refundViaRazorpay(int appointmentId, String reason) {
@@ -160,7 +142,6 @@ public class RazorpayServiceImpl implements RazorpayService {
                 .orElseThrow(() -> new RuntimeException(
                     "No payment found for appointmentId: " + appointmentId));
 
-        // Handle CASH / non-Razorpay payments
         if (payment.getMode().equals("CASH")) {
             payment.setStatus("CANCELLED");
             payment.setNotes("Cash appointment cancelled — no collection made");
@@ -172,7 +153,6 @@ public class RazorpayServiceImpl implements RazorpayService {
             return paymentRepository.save(payment);
         }
 
-        // Only refund if the transactionId looks like a Razorpay payment ID
         String txnId = payment.getTransactionId();
         if (txnId == null || !txnId.startsWith("pay_")) {
             payment.setStatus("REFUNDED");
@@ -207,8 +187,6 @@ public class RazorpayServiceImpl implements RazorpayService {
                 "Razorpay refund failed: " + e.getMessage(), e);
         }
     }
-
-    // ─── Signature Verification Helper ──────────────────────────────────────
 
     private boolean isSignatureValid(String orderId, String paymentId, String signature) {
         try {

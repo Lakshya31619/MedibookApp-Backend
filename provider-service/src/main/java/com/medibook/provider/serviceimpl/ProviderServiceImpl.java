@@ -53,10 +53,8 @@ public class ProviderServiceImpl implements ProviderService {
         provider.setConsultationFee(request.getConsultationFee());
         provider.setProfilePicUrl(request.getProfilePicUrl());
 
-        // @PrePersist will set: verified=false, emailVerified=false, available=false, verificationStatus=PENDING
         Provider saved = providerRepository.save(provider);
 
-        // Notify admin that a new provider has registered and needs review
         sendProviderEvent("PROVIDER_REGISTERED", saved.getUserId(), saved.getProviderName(), null);
 
         return saved;
@@ -169,7 +167,6 @@ public class ProviderServiceImpl implements ProviderService {
         if (request.getProfilePicUrl() != null)
             provider.setProfilePicUrl(request.getProfilePicUrl());
 
-        // If previously rejected, reset to PENDING so admin reviews again
         if (wasRejected) {
             provider.setVerificationStatus("PENDING");
             provider.setRejectionReason(null);
@@ -177,7 +174,6 @@ public class ProviderServiceImpl implements ProviderService {
 
         Provider saved = providerRepository.save(provider);
 
-        // Notify admin of resubmission
         if (wasRejected) {
             sendProviderEvent("PROVIDER_REGISTERED", saved.getUserId(), saved.getProviderName(), null);
         }
@@ -197,8 +193,6 @@ public class ProviderServiceImpl implements ProviderService {
         provider.setVerified(true);
         provider.setVerificationStatus("APPROVED");
         provider.setRejectionReason(null);
-        // Admin verification means provider CAN now be available
-        // Keep their availability preference, or set to true if not set
         if (!provider.isAvailable()) {
             provider.setAvailable(true);
         }

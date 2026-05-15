@@ -56,7 +56,11 @@ public class ReviewServiceImpl implements ReviewService {
 
         Review saved = reviewRepository.save(review);
 
-        pushRatingToProviderService(request.getProviderId());
+        try {
+            pushRatingToProviderService(request.getProviderId());
+        } catch (Exception e) {
+            System.err.println("Warning: Could not push rating to provider-service: " + e.getMessage());
+        }
 
         return saved;
     }
@@ -124,7 +128,11 @@ public class ReviewServiceImpl implements ReviewService {
 
         Review updated = reviewRepository.save(review);
 
-        pushRatingToProviderService(review.getProviderId());
+        try {
+            pushRatingToProviderService(review.getProviderId());
+        } catch (Exception e) {
+            System.err.println("Warning: Could not push rating to provider-service: " + e.getMessage());
+        }
 
         return updated;
     }
@@ -218,22 +226,19 @@ public class ReviewServiceImpl implements ReviewService {
     }
 
     private void pushRatingToProviderService(int providerId) {
-        try {
-            double newAvg = reviewRepository.avgRatingByProviderId(providerId);
-            double rounded = Math.round(newAvg * 100.0) / 100.0;
+        double newAvg = reviewRepository.avgRatingByProviderId(providerId);
+        double rounded = Math.round(newAvg * 100.0) / 100.0;
 
+        try {
             restTemplate.put(
                 providerServiceUrl + "/providers/" + providerId
                 + "/rating?value=" + rounded,
                 null
             );
-
-            System.out.println("Rating pushed to provider-service: provider="
-                + providerId + " avgRating=" + rounded);
-
+            System.out.println("Rating pushed to provider-service: provider=" + providerId + " avgRating=" + rounded);
         } catch (Exception e) {
-            System.err.println("Warning: Could not push rating to provider-service: "
-                + e.getMessage());
+            System.err.println("Failed to push rating to provider-service: " + e.getMessage());
+            throw new RuntimeException("Failed to update provider rating: " + e.getMessage(), e);
         }
     }
 }

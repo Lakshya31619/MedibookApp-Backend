@@ -111,18 +111,13 @@ public class AuthResource {
 
     @GetMapping("/profile/{userId}")
     public ResponseEntity<?> getProfile(@PathVariable int userId, Principal principal) {
-        // FIX: Guard against null principal (unauthenticated request slipping through)
         if (principal == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("error", "Authentication required"));
         }
         try {
-            // FIX: Fetch user first; if not found this throws a "User not found" RuntimeException
-            // which we correctly map to 404 below.
             User user = authService.getUserById(userId);
 
-            // FIX: Wrap requester lookup separately — an error here is an internal/cache issue,
-            // not a "profile not found", so we surface it as 500 rather than 404.
             User requester;
             try {
                 requester = authService.getUserByEmail(principal.getName());
@@ -141,13 +136,11 @@ public class AuthResource {
             return ResponseEntity.ok(mapToResponse(user));
 
         } catch (RuntimeException e) {
-            // Only user-not-found RuntimeExceptions reach here (requester lookup is guarded above)
             String msg = e.getMessage() != null ? e.getMessage() : "User not found";
             if (msg.toLowerCase().contains("not found")) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .body(Map.of("error", msg));
             }
-            // Anything else (e.g. Redis/DB failure on getUserById) → 500
             System.err.println("[AuthResource] Unexpected error fetching profile for userId=" + userId
                     + ": " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -160,6 +153,9 @@ public class AuthResource {
                                            @RequestBody UpdateProfileRequest request,
                                            Principal principal) {
         try {
+            System.out.println("[AuthResource] PUT /profile/" + userId);
+            System.out.println("[AuthResource] Request body - fullName: '" + request.getFullName() + "', phone: '" + request.getPhone() + "', profilePicUrl: '" + request.getProfilePicUrl() + "'");
+            
             User requester = authService.getUserByEmail(principal.getName());
             if (requester.getUserId() != userId && !requester.getRole().equals("ADMIN")) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN)
@@ -167,11 +163,16 @@ public class AuthResource {
             }
 
             User updated = authService.updateProfile(userId, request);
-            return ResponseEntity.ok(Map.of(
+            System.out.println("[AuthResource] Updated user fullName in response: '" + updated.getFullName() + "'");
+            
+            Map<String, Object> response = Map.of(
                 "message", "Profile updated",
                 "user", mapToResponse(updated)
-            ));
+            );
+            System.out.println("[AuthResource] Sending response with user: " + response.get("user"));
+            return ResponseEntity.ok(response);
         } catch (RuntimeException e) {
+            System.err.println("[AuthResource] Error updating profile: " + e.getMessage());
             return ResponseEntity.badRequest()
                     .body(Map.of("error", e.getMessage()));
         }
