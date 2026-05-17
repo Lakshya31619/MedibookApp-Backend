@@ -2,8 +2,6 @@ package com.medibook.auth.config;
 
 import com.medibook.auth.entity.User;
 import com.medibook.auth.repository.UserRepository;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
@@ -20,9 +18,6 @@ public class DataInitializer implements CommandLineRunner {
 
     @Autowired
     private PasswordEncoder passwordEncoder;
-
-    @PersistenceContext
-    private EntityManager entityManager;
 
     @Override
     @Transactional
@@ -50,16 +45,10 @@ public class DataInitializer implements CommandLineRunner {
                 userRepository.save(adminUser);
                 log.info("✅ Default admin user created successfully!");
                 log.info("   📧 Email: admin@medibook.com");
-                log.info("   🔐 Password: Admin@123456 (⚠️ Change this in production!)");
+                log.info("   🔐 Password: Admin@123456");
             } else {
                 log.info("✅ Admin user already exists, skipping initialization");
             }
-
-            log.info("🔄 Resetting AUTO_INCREMENT on users table...");
-            entityManager.createNativeQuery(
-                "ALTER TABLE users AUTO_INCREMENT = 1"
-            ).executeUpdate();
-            log.info("✅ AUTO_INCREMENT reset complete.");
 
         } catch (InterruptedException e) {
             log.warn("⏸️ DataInitializer interrupted: {}", e.getMessage());
