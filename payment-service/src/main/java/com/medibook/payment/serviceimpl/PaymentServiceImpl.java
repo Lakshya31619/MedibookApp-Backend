@@ -6,6 +6,8 @@ import com.medibook.payment.repository.PaymentRepository;
 import com.medibook.payment.service.PaymentService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
@@ -37,6 +39,10 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     @Transactional
+    @CacheEvict(value = {
+            "paymentById", "paymentByAppointment",
+            "paymentsByPatient"
+    }, allEntries = true)
     public Payment processPayment(ProcessPaymentRequest request) {
 
         if (paymentRepository.existsByAppointmentId(request.getAppointmentId())) {
@@ -87,6 +93,7 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     @Override
+    @Cacheable(value = "paymentById", key = "#paymentId")
     public Payment getPaymentById(int paymentId) {
         return paymentRepository.findById(paymentId)
                 .orElseThrow(() -> new RuntimeException(
@@ -94,6 +101,7 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     @Override
+    @Cacheable(value = "paymentByAppointment", key = "#appointmentId")
     public Payment getPaymentByAppointment(int appointmentId) {
         return paymentRepository.findByAppointmentId(appointmentId)
                 .orElseThrow(() -> new RuntimeException(
@@ -101,6 +109,7 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     @Override
+    @Cacheable(value = "paymentsByPatient", key = "#patientId")
     public List<Payment> getPaymentsByPatient(int patientId) {
         return paymentRepository.findByPatientId(patientId);
     }
@@ -129,6 +138,10 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     @Transactional
+    @CacheEvict(value = {
+            "paymentById", "paymentByAppointment",
+            "paymentsByPatient"
+    }, allEntries = true)
     public Payment refundPayment(int appointmentId, String reason) {
 
         Payment payment = paymentRepository.findByAppointmentId(appointmentId)
@@ -178,6 +191,10 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     @Transactional
+    @CacheEvict(value = {
+            "paymentById", "paymentByAppointment",
+            "paymentsByPatient"
+    }, allEntries = true)
     public Payment confirmCashPayment(int appointmentId) {
         Payment payment = getPaymentByAppointment(appointmentId);
 
@@ -205,6 +222,10 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     @Transactional
+    @CacheEvict(value = {
+            "paymentById", "paymentByAppointment",
+            "paymentsByPatient"
+    }, allEntries = true)
     public void updatePaymentStatus(int paymentId, String status) {
         Payment payment = getPaymentById(paymentId);
         payment.setStatus(status.toUpperCase());

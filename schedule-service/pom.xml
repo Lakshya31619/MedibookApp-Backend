@@ -21,7 +21,6 @@
     <properties>
         <!-- ── SonarQube ── -->
         <sonar.host.url>http://localhost:9000</sonar.host.url>
-        <sonar.login>sqa_e70ede7e9bb6c7289c19abd034b1ea7fdc236e1b</sonar.login>
         <sonar.projectKey>medibook-schedule-service</sonar.projectKey>
         <sonar.projectName>MediBook Schedule Service</sonar.projectName>
         <sonar.coverage.jacoco.xmlReportPaths>target/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>

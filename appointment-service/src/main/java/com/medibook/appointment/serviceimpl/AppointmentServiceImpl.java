@@ -6,6 +6,8 @@ import com.medibook.appointment.repository.AppointmentRepository;
 import com.medibook.appointment.service.AppointmentService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
@@ -39,6 +41,10 @@ public class AppointmentServiceImpl implements AppointmentService {
 
     @Override
     @Transactional
+    @CacheEvict(value = {
+            "appointmentById", "appointmentsByPatient",
+            "appointmentsByProvider", "appointmentsByProviderDate"
+    }, allEntries = true)
     public Appointment bookAppointment(BookAppointmentRequest request) {
 
         Map<String, Object> slotDetails = fetchSlotDetails(request.getSlotId());
@@ -78,6 +84,10 @@ public class AppointmentServiceImpl implements AppointmentService {
 
     @Override
     @Transactional
+    @CacheEvict(value = {
+            "appointmentById", "appointmentsByPatient",
+            "appointmentsByProvider", "appointmentsByProviderDate"
+    }, allEntries = true)
     public void cancelAppointment(int appointmentId, String reason) {
         Appointment appointment = getById(appointmentId);
 
@@ -104,6 +114,10 @@ public class AppointmentServiceImpl implements AppointmentService {
 
     @Override
     @Transactional
+    @CacheEvict(value = {
+            "appointmentById", "appointmentsByPatient",
+            "appointmentsByProvider", "appointmentsByProviderDate"
+    }, allEntries = true)
     public Appointment rescheduleAppointment(int appointmentId, RescheduleRequest request) {
         Appointment appointment = getById(appointmentId);
 
@@ -137,6 +151,10 @@ public class AppointmentServiceImpl implements AppointmentService {
 
     @Override
     @Transactional
+    @CacheEvict(value = {
+            "appointmentById", "appointmentsByPatient",
+            "appointmentsByProvider", "appointmentsByProviderDate"
+    }, allEntries = true)
     public void completeAppointment(int appointmentId) {
         Appointment appointment = getById(appointmentId);
         if (!appointment.getStatus().equals("SCHEDULED")) {
@@ -156,6 +174,10 @@ public class AppointmentServiceImpl implements AppointmentService {
 
     @Override
     @Transactional
+    @CacheEvict(value = {
+            "appointmentById", "appointmentsByPatient",
+            "appointmentsByProvider", "appointmentsByProviderDate"
+    }, allEntries = true)
     public void markNoShow(int appointmentId) {
         Appointment appointment = getById(appointmentId);
         appointment.setStatus("NO_SHOW");
@@ -172,6 +194,10 @@ public class AppointmentServiceImpl implements AppointmentService {
 
     @Override
     @Transactional
+    @CacheEvict(value = {
+            "appointmentById", "appointmentsByPatient",
+            "appointmentsByProvider", "appointmentsByProviderDate"
+    }, allEntries = true)
     public void updateStatus(int appointmentId, String status) {
         Appointment appointment = getById(appointmentId);
         appointment.setStatus(status.toUpperCase());
@@ -179,22 +205,26 @@ public class AppointmentServiceImpl implements AppointmentService {
     }
 
     @Override
+    @Cacheable(value = "appointmentById", key = "#appointmentId")
     public Appointment getById(int appointmentId) {
         return appointmentRepository.findById(appointmentId)
                 .orElseThrow(() -> new RuntimeException("Appointment not found: " + appointmentId));
     }
 
     @Override
+    @Cacheable(value = "appointmentsByPatient", key = "#patientId")
     public List<Appointment> getByPatient(int patientId) {
         return appointmentRepository.findByPatientId(patientId);
     }
 
     @Override
+    @Cacheable(value = "appointmentsByProvider", key = "#providerId")
     public List<Appointment> getByProvider(int providerId) {
         return appointmentRepository.findByProviderId(providerId);
     }
 
     @Override
+    @Cacheable(value = "appointmentsByProviderDate", key = "#providerId + ':' + #date")
     public List<Appointment> getByProviderAndDate(int providerId, LocalDate date) {
         return appointmentRepository.findByProviderIdAndAppointmentDate(providerId, date);
     }

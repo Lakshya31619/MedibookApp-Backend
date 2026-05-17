@@ -1,5 +1,6 @@
 package com.medibook.review.entity;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import java.io.Serializable;
 import lombok.Data;
@@ -51,12 +52,15 @@ public class Review implements Serializable {
     private LocalDate reviewDate;
 
     @Column(nullable = false)
+    @JsonProperty("isVerified")
     private boolean isVerified = false;
 
     @Column(nullable = false)
+    @JsonProperty("isAnonymous")
     private boolean isAnonymous = false;
 
     @Column(nullable = false)
+    @JsonProperty("isFlagged")
     private boolean isFlagged = false;
 
     @Column

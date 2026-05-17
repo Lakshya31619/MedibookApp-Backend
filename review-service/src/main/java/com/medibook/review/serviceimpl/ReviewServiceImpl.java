@@ -109,7 +109,8 @@ public class ReviewServiceImpl implements ReviewService {
         @CacheEvict(value = "ratingSummary",   allEntries = true)
     })
     public Review updateReview(int reviewId, UpdateReviewRequest request) {
-        Review review = getReviewById(reviewId);
+        Review review = reviewRepository.findById(reviewId)
+                .orElseThrow(() -> new RuntimeException("Review not found with id: " + reviewId));
 
         if (request.getRating() != null) {
             if (request.getRating() < 1 || request.getRating() > 5) {
@@ -145,12 +146,17 @@ public class ReviewServiceImpl implements ReviewService {
         @CacheEvict(value = "ratingSummary",   allEntries = true)
     })
     public void deleteReview(int reviewId) {
-        Review review = getReviewById(reviewId);
+        Review review = reviewRepository.findById(reviewId)
+                .orElseThrow(() -> new RuntimeException("Review not found with id: " + reviewId));
         int providerId = review.getProviderId();
 
         reviewRepository.deleteByReviewId(reviewId);
 
-        pushRatingToProviderService(providerId);
+        try {
+            pushRatingToProviderService(providerId);
+        } catch (Exception e) {
+            System.err.println("Warning: Could not push rating to provider-service after delete: " + e.getMessage());
+        }
     }
 
     @Override
@@ -160,7 +166,8 @@ public class ReviewServiceImpl implements ReviewService {
         @CacheEvict(value = "providerReviews", allEntries = true)
     })
     public void flagReview(int reviewId, String reason) {
-        Review review = getReviewById(reviewId);
+        Review review = reviewRepository.findById(reviewId)
+                .orElseThrow(() -> new RuntimeException("Review not found with id: " + reviewId));
         review.setFlagged(true);
         review.setFlagReason(reason);
         reviewRepository.save(review);
@@ -173,7 +180,8 @@ public class ReviewServiceImpl implements ReviewService {
         @CacheEvict(value = "providerReviews", allEntries = true)
     })
     public void unflagReview(int reviewId) {
-        Review review = getReviewById(reviewId);
+        Review review = reviewRepository.findById(reviewId)
+                .orElseThrow(() -> new RuntimeException("Review not found with id: " + reviewId));
         review.setFlagged(false);
         review.setFlagReason(null);
         reviewRepository.save(review);
@@ -186,7 +194,8 @@ public class ReviewServiceImpl implements ReviewService {
         @CacheEvict(value = "providerReviews", allEntries = true)
     })
     public void verifyReview(int reviewId) {
-        Review review = getReviewById(reviewId);
+        Review review = reviewRepository.findById(reviewId)
+                .orElseThrow(() -> new RuntimeException("Review not found with id: " + reviewId));
         review.setVerified(true);
         review.setFlagged(false);
         reviewRepository.save(review);
