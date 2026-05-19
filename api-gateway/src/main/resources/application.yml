@@ -20,31 +20,52 @@ spring:
           predicates:
             - Path=/api/auth/**
           filters:
-            - StripPrefix=1
+            - StripPrefix=0
 
-        # ── Auth Service OAuth2 ───────────────────────────────────────────
+        # ── Auth Service OAuth2 initiation (with /api prefix) ─────────────
+        # Handles /api/oauth2/authorization/google — context-path aware path.
+        - id: auth-service-oauth2-api
+          uri: lb://auth-service
+          predicates:
+            - Path=/api/oauth2/**
+          filters:
+            - StripPrefix=0
+
+        # ── Auth Service OAuth2 initiation (without /api prefix) ──────────
+        # Frontend hits /oauth2/authorization/google (no /api prefix).
+        # Rewrite to /api/oauth2/... so auth-service receives the correct path.
         - id: auth-service-oauth2
           uri: lb://auth-service
           predicates:
             - Path=/oauth2/**
           filters:
+            - RewritePath=/oauth2/(?<segment>.*), /api/oauth2/${segment}
+
+        # ── Auth Service OAuth2 Callback (with /api prefix) ───────────────
+        # Google redirects to http://localhost:8080/api/login/oauth2/code/google
+        - id: auth-service-oauth2-callback-api
+          uri: lb://auth-service
+          predicates:
+            - Path=/api/login/oauth2/**
+          filters:
             - StripPrefix=0
 
-        # ── Auth Service OAuth2 Callback ──────────────────────────────────
+        # ── Auth Service OAuth2 Callback (without /api prefix) ────────────
+        # Fallback in case redirect URI is still set to /login/oauth2/...
         - id: auth-service-oauth2-callback
           uri: lb://auth-service
           predicates:
             - Path=/login/oauth2/**
           filters:
-            - StripPrefix=0
+            - RewritePath=/login/oauth2/(?<segment>.*), /api/login/oauth2/${segment}
 
-        # ── Auth Service OpenAPI docs (no context-path on auth-service) ───
+        # ── Auth Service OpenAPI docs ─────────────────────────────────────
         - id: auth-service-docs
           uri: lb://auth-service
           predicates:
             - Path=/v3/api-docs/auth-service
           filters:
-            - RewritePath=/v3/api-docs/auth-service, /v3/api-docs
+            - RewritePath=/v3/api-docs/auth-service, /api/v3/api-docs
 
         # ── Provider Service (port 8082) ──────────────────────────────────
         - id: provider-service

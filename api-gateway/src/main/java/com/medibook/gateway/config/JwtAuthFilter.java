@@ -29,15 +29,26 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private static final List<String> PUBLIC_PATHS = List.of(
+            // ── Auth endpoints ────────────────────────────────────────────
             "/api/auth/login",
             "/api/auth/register",
             "/api/auth/refresh",
             "/api/auth/send-verification",
             "/api/auth/verify-email",
             "/api/auth/internal",
-            "/api/auth/oauth2",
-            "/login/oauth2",
+
+            // ── OAuth2 — both with and without /api prefix ────────────────
+            // Frontend initiates at /oauth2/... (no /api), gateway rewrites
+            // to /api/oauth2/... before forwarding to auth-service.
+            // Google callback arrives at /api/login/oauth2/... (with /api).
+            // All four prefixes must be whitelisted so JwtAuthFilter never
+            // blocks them — none of these requests carry a Bearer token.
             "/oauth2",
+            "/api/oauth2",
+            "/login/oauth2",
+            "/api/login/oauth2",
+
+            // ── Infrastructure ────────────────────────────────────────────
             "/actuator",
             "/eureka",
             "/swagger-ui",
@@ -45,17 +56,19 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
             "/v3/api-docs",
             "/webjars",
 
+            // ── Public provider browsing ──────────────────────────────────
             "/api/providers",
-
             "/api/providers/search",
             "/api/providers/specialization",
             "/api/providers/location",
             "/api/providers/analytics",
 
+            // ── Public reviews ────────────────────────────────────────────
             "/api/reviews/provider",
             "/api/reviews/rating",
             "/api/reviews/summary",
 
+            // ── Public slots ──────────────────────────────────────────────
             "/api/slots/available",
             "/api/slots/provider"
     );

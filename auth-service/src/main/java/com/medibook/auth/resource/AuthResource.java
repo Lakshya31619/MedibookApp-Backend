@@ -155,7 +155,7 @@ public class AuthResource {
         try {
             System.out.println("[AuthResource] PUT /profile/" + userId);
             System.out.println("[AuthResource] Request body - fullName: '" + request.getFullName() + "', phone: '" + request.getPhone() + "', profilePicUrl: '" + request.getProfilePicUrl() + "'");
-            
+
             User requester = authService.getUserByEmail(principal.getName());
             if (requester.getUserId() != userId && !requester.getRole().equals("ADMIN")) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN)
@@ -164,7 +164,7 @@ public class AuthResource {
 
             User updated = authService.updateProfile(userId, request);
             System.out.println("[AuthResource] Updated user fullName in response: '" + updated.getFullName() + "'");
-            
+
             Map<String, Object> response = Map.of(
                 "message", "Profile updated",
                 "user", mapToResponse(updated)
@@ -237,15 +237,15 @@ public class AuthResource {
 
     private Map<String, Object> mapToResponse(User user) {
         return Map.of(
-            "userId",       user.getUserId(),
-            "fullName",     user.getFullName(),
-            "email",        user.getEmail(),
-            "phone",        user.getPhone() != null ? user.getPhone() : "",
-            "role",         user.getRole(),
-            "active",       user.isActive(),
-            "provider",     user.getProvider() != null ? user.getProvider() : "local",
-            "profilePicUrl",user.getProfilePicUrl() != null ? user.getProfilePicUrl() : "",
-            "createdAt",    user.getCreatedAt() != null ? user.getCreatedAt().toString() : ""
+            "userId",        user.getUserId(),
+            "fullName",      user.getFullName(),
+            "email",         user.getEmail(),
+            "phone",         user.getPhone() != null ? user.getPhone() : "",
+            "role",          user.getRole(),
+            "active",        user.isActive(),
+            "provider",      user.getProvider() != null ? user.getProvider() : "local",
+            "profilePicUrl", user.getProfilePicUrl() != null ? user.getProfilePicUrl() : "",
+            "createdAt",     user.getCreatedAt() != null ? user.getCreatedAt().toString() : ""
         );
     }
 }
